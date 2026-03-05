@@ -1,11 +1,11 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { apiFetch } from '../lib/api';
 
-export default function PageReinitialiserMotDePasse() {
+function PageReinitialiserMotDePasseContent() {
   const params = useSearchParams();
   const router = useRouter();
   const token = params.get('token') ?? '';
@@ -124,5 +124,13 @@ export default function PageReinitialiserMotDePasse() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function PageReinitialiserMotDePasse() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><p>Chargement…</p></div>}>
+      <PageReinitialiserMotDePasseContent />
+    </Suspense>
   );
 }

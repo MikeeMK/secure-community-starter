@@ -1,11 +1,11 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { apiFetch } from '../lib/api';
 
-export default function PageVerifierEmail() {
+function PageVerifierEmailContent() {
   const params = useSearchParams();
   const token = params.get('token') ?? '';
 
@@ -56,5 +56,13 @@ export default function PageVerifierEmail() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function PageVerifierEmail() {
+  return (
+    <Suspense fallback={<div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><p>Chargement…</p></div>}>
+      <PageVerifierEmailContent />
+    </Suspense>
   );
 }
