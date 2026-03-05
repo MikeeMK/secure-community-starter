@@ -141,12 +141,17 @@ export default function ConnexionClient() {
 
           <hr className="divider" style={{ margin: '20px 0' }} />
 
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>
-            Pas encore membre ?{' '}
-            <Link href="/inscription" style={{ fontWeight: 700, color: 'var(--primary)' }}>
-              Créer un compte
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, color: 'var(--text-muted)' }}>
+            <span>
+              Pas encore membre ?{' '}
+              <Link href="/inscription" style={{ fontWeight: 700, color: 'var(--primary)' }}>
+                Créer un compte
+              </Link>
+            </span>
+            <Link href="/mot-de-passe-oublie" style={{ color: 'var(--text-muted)', textDecoration: 'underline', fontSize: 13 }}>
+              Mot de passe oublié ?
             </Link>
-          </p>
+          </div>
         </div>
 
         <p style={{ fontSize: 12, color: 'var(--text-dim)', textAlign: 'center', marginTop: 20 }}>

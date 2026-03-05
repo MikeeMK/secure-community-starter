@@ -5,6 +5,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { CaptchaService } from './captcha.service';
+import { EmailService } from './email.service';
 import { LoginAttemptService } from './login-attempt.service';
 import { JwtStrategy } from './jwt.strategy';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -21,7 +22,7 @@ import { JwtAuthGuard } from './jwt-auth.guard';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, CaptchaService, LoginAttemptService, JwtStrategy, JwtAuthGuard],
+  providers: [AuthService, CaptchaService, EmailService, LoginAttemptService, JwtStrategy, JwtAuthGuard],
   exports: [AuthService, JwtAuthGuard],
 })
 export class AuthModule {}

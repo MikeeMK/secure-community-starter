@@ -10,6 +10,7 @@ const liens = [
   { href: '/', label: 'Accueil', exact: true },
   { href: '/forum', label: 'Forum', exact: false },
   { href: '/groupes', label: 'Groupes', exact: false },
+  { href: '/decouvrir', label: 'Découvrir', exact: false },
   { href: '/admin/moderation', label: 'Modération', exact: false },
 ];
 
@@ -27,7 +28,7 @@ export function Nav() {
       <div className="nav-inner">
         {/* Logo */}
         <Link href="/" className="nav-logo">
-          <span className="nav-logo-icon">C</span>
+          <span className="nav-logo-heart">♥</span>
           Communauté
         </Link>
 
@@ -59,7 +60,7 @@ export function Nav() {
               <Link href="/connexion" className="btn btn-ghost btn-sm">
                 Connexion
               </Link>
-              <Link href="/inscription" className="btn btn-primary btn-sm">
+              <Link href="/inscription" className="btn btn-coral btn-sm">
                 S&apos;inscrire
               </Link>
             </>

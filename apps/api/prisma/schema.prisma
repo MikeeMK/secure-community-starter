@@ -35,14 +35,42 @@ model User {
   passwordHash String
   trustLevel   TrustLevel @default(new)
 
+  emailVerifiedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  forumTopics ForumTopic[]
-  forumPosts  ForumPost[]
-  reportsMade Report[] @relation("ReportsMade")
+  forumTopics         ForumTopic[]
+  forumPosts          ForumPost[]
+  reportsMade         Report[]                @relation("ReportsMade")
+  verificationTokens  EmailVerificationToken[]
+  passwordResetTokens PasswordResetToken[]
 
   @@index([trustLevel])
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Group {

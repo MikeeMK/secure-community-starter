@@ -1,242 +1,261 @@
 import Link from 'next/link';
 
+const MEMBRES = [
+  { initiales: 'CL', nom: 'Claire', age: 27, ville: 'Paris',     gradient: 'linear-gradient(135deg, #f472b6, #ec4899)', online: true  },
+  { initiales: 'AX', nom: 'Axel',   age: 30, ville: 'Lyon',      gradient: 'linear-gradient(135deg, #60a5fa, #3b82f6)', online: true  },
+  { initiales: 'JU', nom: 'Julie',  age: 29, ville: 'Bordeaux',  gradient: 'linear-gradient(135deg, #fb923c, #f97316)', online: false },
+  { initiales: 'MC', nom: 'Marc',   age: 35, ville: 'Marseille', gradient: 'linear-gradient(135deg, #34d399, #10b981)', online: true  },
+];
+
+const DISCUSSIONS = [
+  { icon: '💬', iconBg: 'rgba(232,93,117,0.10)', titre: 'Comment faire de vraies rencontres en ligne ?', reponses: 523 },
+  { icon: '✨', iconBg: 'rgba(79,143,139,0.10)',  titre: 'Vos expériences de premières rencontres',        reponses: 210 },
+];
+
+const GROUPES = [
+  { icon: '👫', bg: 'rgba(232,93,117,0.12)', nom: 'Rencontres sérieuses', membres: 194 },
+  { icon: '💬', bg: 'rgba(79,143,139,0.12)',  nom: 'Discussion libre',     membres: 289 },
+  { icon: '💗', bg: 'rgba(244,114,182,0.12)', nom: 'Couples',              membres: 162 },
+  { icon: '💡', bg: 'rgba(251,191,36,0.12)',  nom: 'Curieux / débutants',  membres: 118 },
+];
+
 export default function Accueil() {
   return (
     <div className="landing-root" style={{ margin: '-36px -24px -60px', padding: 0 }}>
 
       {/* ====================================================
-          HÉROS
+          HÉROS SPLIT
           ==================================================== */}
-      <section className="landing-hero">
-        {/* Orbs de fond */}
-        <div className="orb-container">
-          <div className="orb orb-teal" style={{ width: 700, height: 700, top: '-200px', left: '50%', transform: 'translateX(-60%)' }} />
-          <div className="orb orb-purple" style={{ width: 500, height: 500, top: '100px', right: '-100px' }} />
-          <div className="orb orb-cyan" style={{ width: 400, height: 400, bottom: '-50px', left: '-80px' }} />
-        </div>
+      <section className="hero-split">
+        <div className="hero-split-inner">
 
-        <div className="landing-hero-content">
-          {/* Badge animé */}
-          <div className="landing-badge">
-            <span className="landing-badge-dot" />
-            Plateforme privée &amp; sécurisée
+          {/* Texte gauche */}
+          <div className="hero-split-text">
+            <div className="hero-split-badge">
+              <span className="landing-badge-dot" />
+              Plateforme privée &amp; sécurisée
+            </div>
+
+            <h1 className="hero-split-title">
+              Rencontrez des personnes<br />
+              qui partagent <span style={{ color: 'var(--coral)' }}>vos envies</span>
+            </h1>
+
+            <p className="hero-split-subtitle">
+              Une communauté intime pour discuter, explorer
+              et faire des rencontres en toute sécurité.
+            </p>
+
+            <div className="hero-split-ctas">
+              <Link href="/inscription" className="hero-split-btn-primary">
+                Créer un compte
+              </Link>
+              <Link href="/forum" className="hero-split-btn-secondary">
+                Explorer la communauté
+              </Link>
+            </div>
+
+            {/* Preuve sociale */}
+            <div className="landing-social-proof" style={{ marginTop: 32, justifyContent: 'flex-start' }}>
+              <div className="landing-avatars">
+                {MEMBRES.map((m, i) => (
+                  <div key={i} className="landing-avatar" style={{ background: m.gradient, color: '#fff' }}>
+                    {m.initiales[0]}
+                  </div>
+                ))}
+                <div className="landing-avatar">+</div>
+              </div>
+              <span>Rejoignez des centaines de membres actifs</span>
+            </div>
           </div>
 
-          {/* Titre principal */}
-          <h1 className="landing-title">
-            Rencontrez, échangez<br />
-            <span className="grad-teal">et explorez</span>{' '}
-            <span className="grad-purple">librement</span>
-          </h1>
+          {/* Illustration droite */}
+          <div className="hero-split-illustration">
+            <div className="hero-blob" />
 
-          {/* Sous-titre */}
-          <p className="landing-subtitle">
-            Une communauté moderne pour discuter, partager et créer
-            des connexions authentiques — dans un espace privé, modéré et respectueux.
-          </p>
-
-          {/* CTA */}
-          <div className="landing-cta-group">
-            <Link href="/inscription" className="btn-landing-primary">
-              Créer un compte gratuit
-            </Link>
-            <Link href="/connexion" className="btn-landing-secondary">
-              Se connecter
-            </Link>
-          </div>
-
-          {/* Preuve sociale */}
-          <div className="landing-social-proof">
-            <div className="landing-avatars">
-              {['A', 'M', 'L', 'S', 'K'].map((l, i) => (
-                <div key={i} className="landing-avatar">{l}</div>
+            {/* Cartes profil flottantes */}
+            <div className="hero-profiles">
+              {[MEMBRES[0], MEMBRES[1], MEMBRES[3]].map((m, i) => (
+                <div key={i} className="hero-profile-card">
+                  <div className="hero-profile-avatar" style={{ background: m.gradient }}>
+                    {m.initiales}
+                  </div>
+                  <div className="hero-profile-name">{m.nom}, {m.age}</div>
+                  <div className="hero-profile-city">{m.ville}</div>
+                </div>
               ))}
             </div>
-            <span>Rejoignez des centaines de membres actifs</span>
+
+            {/* Bulle de chat flottante */}
+            <div className="hero-float" style={{
+              top: 80, right: 20,
+              padding: '10px 16px',
+              borderRadius: 20,
+              fontSize: 13,
+              fontWeight: 600,
+              color: 'var(--text)',
+              display: 'flex', alignItems: 'center', gap: 8,
+            }}>
+              <span>💬</span>
+              <span style={{ color: 'var(--text-muted)' }}>Salut, ravie de te voir ici !</span>
+            </div>
+
+            {/* Cœur flottant */}
+            <div className="hero-float" style={{
+              top: 60, left: 30,
+              padding: '10px 14px',
+              borderRadius: 16,
+              fontSize: 20,
+            }}>
+              ❤️
+            </div>
+
+            {/* Étoile flottante */}
+            <div className="hero-float" style={{
+              bottom: 80, right: 40,
+              padding: '8px 14px',
+              borderRadius: 14,
+              fontSize: 13,
+              fontWeight: 700,
+              color: 'var(--coral)',
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              ✨ Nouveau match !
+            </div>
           </div>
         </div>
       </section>
 
-      <div className="landing-divider" />
+      {/* ====================================================
+          MEMBRES PRÈS DE CHEZ VOUS
+          ==================================================== */}
+      <section className="members-section">
+        <div className="members-section-header">
+          <h2 className="members-section-title">Membres actifs</h2>
+          <Link href="/forum" className="members-section-link">
+            Voir plus de profils &rsaquo;
+          </Link>
+        </div>
+
+        <div className="members-grid">
+          {MEMBRES.map((m, i) => (
+            <div key={i} className="member-card">
+              <div className="member-avatar-photo" style={{ background: m.gradient }}>
+                {m.initiales}
+                {m.online && <span className="member-online-dot" />}
+              </div>
+              <div className="member-name">{m.nom}, {m.age}</div>
+              <div className="member-city">{m.ville}</div>
+              <Link href="/forum" className="btn-discuter">
+                ♥ Discuter
+              </Link>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ textAlign: 'center', marginTop: 28 }}>
+          <Link href="/forum" className="members-section-link">
+            Voir plus de profils &rsaquo;
+          </Link>
+        </div>
+      </section>
 
       {/* ====================================================
-          POURQUOI NOUS REJOINDRE
+          DISCUSSIONS + GROUPES
           ==================================================== */}
-      <div style={{ maxWidth: 1080, margin: '0 auto' }}>
-        <section className="landing-section">
-          <div className="landing-section-header">
-            <span className="landing-section-label">Pourquoi nous rejoindre</span>
-            <h2 className="landing-section-title">
-              Une plateforme pensée<br />pour votre liberté
-            </h2>
-            <p className="landing-section-subtitle">
-              Nous avons conçu chaque fonctionnalité pour que vous puissiez vous exprimer librement,
-              en toute sécurité.
-            </p>
+      <div className="deux-colonnes-section">
+
+        {/* Discussions populaires */}
+        <div>
+          <div className="col-section-header">
+            <h2 className="col-section-title">Discussions populaires</h2>
+            <Link href="/forum" className="col-section-link">Voir plus &rsaquo;</Link>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
-            {[
-              {
-                icon: '&#x1F510;',
-                iconClass: 'glass-icon-teal',
-                titre: 'Profils vérifiés',
-                desc: 'Chaque membre est contrôlé. Pas de bots, pas de faux comptes — une communauté authentique.',
-              },
-              {
-                icon: '&#x1F4AC;',
-                iconClass: 'glass-icon-purple',
-                titre: 'Discussions thématiques',
-                desc: 'Des espaces de discussion organisés par thème pour des conversations riches et ciblées.',
-              },
-              {
-                icon: '&#x1F465;',
-                iconClass: 'glass-icon-cyan',
-                titre: 'Groupes privés',
-                desc: "Créez ou rejoignez des groupes fermés autour d'intérêts spécifiques, accessibles sur invitation.",
-              },
-              {
-                icon: '&#x1F6E1;&#xFE0F;',
-                iconClass: 'glass-icon-amber',
-                titre: 'Modération active',
-                desc: 'Une équipe et des outils de signalement veillent au respect de chaque membre, 24h/24.',
-              },
-            ].map((item, i) => (
-              <div key={i} className="glass-card" style={{ padding: '28px' }}>
-                <div className={`glass-icon ${item.iconClass}`} dangerouslySetInnerHTML={{ __html: item.icon }} />
-                <div className="feature-title" style={{ color: '#f1f5f9' }}>{item.titre}</div>
-                <p className="feature-desc" style={{ color: '#64748b' }}>{item.desc}</p>
+          {DISCUSSIONS.map((d, i) => (
+            <Link href="/forum" key={i} className="discussion-card">
+              <div className="discussion-icon" style={{ background: d.iconBg, fontSize: 20 }}>
+                {d.icon}
               </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="discussion-title">{d.titre}</div>
+                <div className="discussion-replies">{d.reponses} réponses</div>
+              </div>
+              <div style={{ flexShrink: 0 }}>
+                <div style={{ display: 'flex' }}>
+                  {[0, 1, 2].map((j) => (
+                    <div key={j} className="landing-avatar" style={{
+                      background: MEMBRES[j].gradient, color: '#fff',
+                      marginLeft: j > 0 ? -8 : 0, fontSize: 9,
+                    }}>
+                      {MEMBRES[j].initiales[0]}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+
+        {/* Groupes actifs */}
+        <div>
+          <div className="col-section-header">
+            <h2 className="col-section-title">Groupes actifs</h2>
+            <Link href="/groupes" className="col-section-link">Voir plus &rsaquo;</Link>
+          </div>
+
+          <div className="groups-mini-grid">
+            {GROUPES.map((g, i) => (
+              <Link href="/groupes" key={i} className="group-card-mini">
+                <div className="group-icon-circle" style={{ background: g.bg }}>
+                  {g.icon}
+                </div>
+                <div>
+                  <div className="group-card-mini-name">{g.nom}</div>
+                  <div className="group-card-mini-members">{g.membres} membres</div>
+                </div>
+              </Link>
             ))}
           </div>
-        </section>
-
-        {/* ====================================================
-            COMMENT CA MARCHE
-            ==================================================== */}
-        <section className="landing-section" style={{ paddingTop: 0 }}>
-          <div className="landing-section-header">
-            <span className="landing-section-label">En 3 étapes</span>
-            <h2 className="landing-section-title">Comment ça marche</h2>
-          </div>
-
-          <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
-            <div className="step-grid">
-              {[
-                {
-                  n: '1',
-                  titre: 'Créez votre profil',
-                  desc: 'Inscrivez-vous en 2 minutes, définissez votre pseudo et vos préférences de confidentialité.',
-                },
-                {
-                  n: '2',
-                  titre: 'Rejoignez des espaces',
-                  desc: "Explorez le forum, intégrez des groupes privés et participez aux discussions qui vous correspondent.",
-                },
-                {
-                  n: '3',
-                  titre: 'Créez des connexions',
-                  desc: "Échangez avec des membres partageant vos intérêts et construisez des relations authentiques.",
-                },
-              ].map((step, i) => (
-                <div key={i} className="step-card">
-                  <div className="step-number">{step.n}</div>
-                  <div className="step-title">{step.titre}</div>
-                  <p className="step-desc">{step.desc}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ====================================================
-            FONCTIONNALITÉS DE LA COMMUNAUTÉ
-            ==================================================== */}
-        <section className="landing-section" style={{ paddingTop: 0 }}>
-          <div className="landing-section-header">
-            <span className="landing-section-label">La plateforme</span>
-            <h2 className="landing-section-title">Tout ce qu&apos;il vous faut</h2>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-            {[
-              { icon: '&#x1F4DD;', label: 'Forum de discussions', color: '#2dd4bf' },
-              { icon: '&#x1F465;', label: 'Groupes thématiques', color: '#a78bfa' },
-              { icon: '&#x1F464;', label: 'Profils membres', color: '#67e8f9' },
-              { icon: '&#x1F512;', label: 'Espaces privés', color: '#f59e0b' },
-              { icon: '&#x1F4E8;', label: 'Messagerie (bientôt)', color: '#94a3b8' },
-            ].map((item, i) => (
-              <div
-                key={i}
-                className="glass-card"
-                style={{ padding: '20px 18px', display: 'flex', alignItems: 'center', gap: 12, opacity: item.color === '#94a3b8' ? 0.5 : 1 }}
-              >
-                <span style={{ fontSize: 22 }} dangerouslySetInnerHTML={{ __html: item.icon }} />
-                <span style={{ fontSize: 14, fontWeight: 600, color: item.color }}>{item.label}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ====================================================
-            SECTION SÉCURITÉ
-            ==================================================== */}
-        <section className="landing-section" style={{ paddingTop: 0 }}>
-          <div className="safety-section">
-            <div className="landing-section-header" style={{ marginBottom: 40 }}>
-              <span className="landing-section-label">Votre sécurité d&apos;abord</span>
-              <h2 className="landing-section-title" style={{ fontSize: 'clamp(22px, 3vw, 34px)' }}>
-                Un espace que vous pouvez<br />vraiment faire confiance
-              </h2>
-            </div>
-
-            <div className="safety-grid">
-              {[
-                {
-                  titre: 'Signalement facile',
-                  desc: "Signalez tout contenu inapproprié en un clic. Notre équipe intervient rapidement.",
-                },
-                {
-                  titre: 'Modération humaine',
-                  desc: "Des modérateurs réels examinent chaque signalement — pas uniquement des algorithmes.",
-                },
-                {
-                  titre: 'Confidentialité totale',
-                  desc: "Vos données personnelles ne sont jamais vendues ni partagées avec des tiers.",
-                },
-                {
-                  titre: 'Respect des membres',
-                  desc: "Charte de conduite stricte. Les comportements irrespectueux entraînent une suspension immédiate.",
-                },
-              ].map((item, i) => (
-                <div key={i} className="safety-item">
-                  <div className="safety-check">&#x2714;</div>
-                  <div>
-                    <div className="safety-text-title">{item.titre}</div>
-                    <p className="safety-text-desc">{item.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+        </div>
       </div>
+
+      {/* ====================================================
+          SÉCURITÉ ET MODÉRATION
+          ==================================================== */}
+      <section className="securite-section">
+        <div className="securite-inner">
+          <div>
+            <h2 className="securite-title">Sécurité et modération</h2>
+            <div className="securite-items">
+              {[
+                'Modération active des contenus',
+                'Signalement des comportements',
+                'Profils vérifiés, pas de bots',
+                'Confidentialité totale de vos données',
+              ].map((item, i) => (
+                <div key={i} className="securite-item">
+                  <div className="securite-check">✓</div>
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="securite-illo">🛡️</div>
+        </div>
+      </section>
 
       {/* ====================================================
           CTA FINAL
           ==================================================== */}
       <div className="landing-divider" />
       <div className="cta-section">
-        <div className="orb-container" style={{ position: 'absolute' }}>
-          <div className="orb orb-teal" style={{ width: 600, height: 300, top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }} />
-        </div>
         <div className="cta-content">
           <h2 className="cta-title">
             Rejoignez la communauté<br />dès maintenant
           </h2>
           <p className="cta-subtitle">
             Inscription gratuite. Aucune carte bancaire requise.
-            Commencez à explorer et à vous connecter.
           </p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 14, flexWrap: 'wrap' }}>
             <Link href="/inscription" className="btn-landing-primary">
@@ -246,11 +265,11 @@ export default function Accueil() {
               J&apos;ai déjà un compte
             </Link>
           </div>
-          <p style={{ marginTop: 24, fontSize: 13, color: '#334155' }}>
+          <p style={{ marginTop: 24, fontSize: 12, color: 'var(--text-dim)' }}>
             En vous inscrivant, vous acceptez nos{' '}
-            <Link href="/legal/cgu" style={{ color: '#475569', textDecoration: 'underline' }}>CGU</Link>
+            <Link href="/legal/cgu" style={{ color: 'var(--text-dim)', textDecoration: 'underline' }}>CGU</Link>
             {' '}et notre{' '}
-            <Link href="/legal/privacy" style={{ color: '#475569', textDecoration: 'underline' }}>politique de confidentialité</Link>.
+            <Link href="/legal/privacy" style={{ color: 'var(--text-dim)', textDecoration: 'underline' }}>politique de confidentialité</Link>.
           </p>
         </div>
       </div>

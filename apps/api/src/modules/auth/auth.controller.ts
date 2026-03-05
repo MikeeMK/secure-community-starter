@@ -4,6 +4,7 @@ import {
   Controller,
   Get,
   Post,
+  Query,
   Request,
   UseGuards,
 } from '@nestjs/common';
@@ -12,6 +13,8 @@ import { z } from 'zod';
 import type { Request as ExpressRequest } from 'express';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
+
+type AuthUser = { id: string; email: string; trustLevel: string };
 
 const RegisterDto = z.object({
   email: z.string().email(),
@@ -58,7 +61,42 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Get('/me')
   me(@Request() req: ExpressRequest) {
-    // req.user is populated by JwtStrategy.validate() after DB lookup
     return { user: req.user };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('/change-password')
+  async changePassword(@Body() body: unknown, @Request() req: ExpressRequest) {
+    const dto = z.object({
+      currentPassword: z.string().min(1),
+      newPassword: z.string().min(8).max(128),
+    }).parse(body);
+    const user = req.user as AuthUser;
+    return this.auth.changePassword(user.id, dto.currentPassword, dto.newPassword);
+  }
+
+  @UseGuards(ThrottlerGuard)
+  @Throttle(5, 60)
+  @Post('/forgot-password')
+  async forgotPassword(@Body() body: unknown) {
+    const dto = z.object({ email: z.string().email() }).parse(body);
+    return this.auth.forgotPassword(dto.email);
+  }
+
+  @UseGuards(ThrottlerGuard)
+  @Throttle(5, 60)
+  @Post('/reset-password')
+  async resetPassword(@Body() body: unknown) {
+    const dto = z.object({
+      token: z.string().min(1),
+      newPassword: z.string().min(8).max(128),
+    }).parse(body);
+    return this.auth.resetPassword(dto.token, dto.newPassword);
+  }
+
+  @Get('/verify-email')
+  async verifyEmail(@Query('token') token: string) {
+    if (!token) throw new BadRequestException('Token manquant');
+    return this.auth.verifyEmail(token);
   }
 }
