@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TrustLevel {
+  new
+  normal
+  trusted
+  restricted
+}
+
+enum ReportTargetType {
+  USER
+  TOPIC
+  POST
+  MESSAGE
+}
+
+enum ReportStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  displayName  String
+  passwordHash String
+  trustLevel   TrustLevel @default(new)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  forumTopics ForumTopic[]
+  forumPosts  ForumPost[]
+  reportsMade Report[] @relation("ReportsMade")
+
+  @@index([trustLevel])
+}
+
+model Group {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  isPrivate Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  topics ForumTopic[]
+}
+
+model ForumTopic {
+  id        String   @id @default(cuid())
+  title     String
+  body      String
+  createdAt DateTime @default(now())
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  groupId String?
+  group   Group? @relation(fields: [groupId], references: [id])
+
+  posts ForumPost[]
+
+  @@index([createdAt])
+}
+
+model ForumPost {
+  id        String   @id @default(cuid())
+  body      String
+  createdAt DateTime @default(now())
+
+  topicId String
+  topic   ForumTopic @relation(fields: [topicId], references: [id])
+
+  authorId String
+  author   User @relation(fields: [authorId], references: [id])
+
+  @@index([createdAt])
+}
+
+model Report {
+  id         String           @id @default(cuid())
+  createdAt  DateTime         @default(now())
+  status     ReportStatus     @default(OPEN)
+  targetType ReportTargetType
+  targetId   String
+  reason     String
+
+  reporterId String
+  reporter   User @relation("ReportsMade", fields: [reporterId], references: [id])
+
+  @@index([status, createdAt])
+  @@index([targetType])
+}
