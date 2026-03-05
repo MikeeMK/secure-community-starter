@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(pnpm install --no-frozen-lockfile)"
+      "Bash(pnpm install --no-frozen-lockfile)",
+      "Bash(npx prisma migrate dev --name add-last-active)"
     ]
   }
 }
