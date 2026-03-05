@@ -1,10 +1,11 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { apiFetch } from '../lib/api';
 
 type OnlineUser = { id: string; displayName: string; lastActiveAt: string };
-type NewMember = { id: string; displayName: string; createdAt: string };
+type NewMember  = { id: string; displayName: string; createdAt: string };
 type ActivityItem = {
   type: 'topic' | 'post' | 'register';
   id: string;
@@ -20,12 +21,7 @@ type SidebarData = {
 };
 
 function initials(name: string) {
-  return name
-    .split(' ')
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
+  return name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
 }
 
 function timeAgo(iso: string) {
@@ -35,14 +31,13 @@ function timeAgo(iso: string) {
   if (m < 60) return `il y a ${m} min`;
   const h = Math.floor(m / 60);
   if (h < 24) return `il y a ${h}h`;
-  const d = Math.floor(h / 24);
-  return `il y a ${d}j`;
+  return `il y a ${Math.floor(h / 24)}j`;
 }
 
-function activityLabel(item: ActivityItem) {
-  if (item.type === 'register') return `${item.actor} a rejoint la communauté`;
-  if (item.type === 'topic') return `${item.actor} a créé "${item.label}"`;
-  return `${item.actor} a répondu dans "${item.label}"`;
+function activityText(item: ActivityItem) {
+  if (item.type === 'register') return 'a rejoint la communauté';
+  if (item.type === 'topic') return `a créé "${item.label}"`;
+  return `a répondu dans "${item.label}"`;
 }
 
 function activityIcon(type: ActivityItem['type']) {
@@ -51,10 +46,46 @@ function activityIcon(type: ActivityItem['type']) {
   return '↩️';
 }
 
-function MiniAvatar({ name }: { name: string }) {
+function Avatar({ name, size = 40 }: { name: string; size?: number }) {
+  const colors = [
+    'linear-gradient(135deg,#f472b6,#ec4899)',
+    'linear-gradient(135deg,#60a5fa,#3b82f6)',
+    'linear-gradient(135deg,#fb923c,#f97316)',
+    'linear-gradient(135deg,#34d399,#10b981)',
+    'linear-gradient(135deg,#a78bfa,#8b5cf6)',
+    'linear-gradient(135deg,#f87171,#ef4444)',
+  ];
+  const idx = name.charCodeAt(0) % colors.length;
   return (
-    <div className="sidebar-avatar">
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        background: colors[idx],
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#fff',
+        fontSize: size * 0.35,
+        fontWeight: 700,
+        flexShrink: 0,
+      }}
+    >
       {initials(name)}
+    </div>
+  );
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return <h3 className="sb-section-title">{children}</h3>;
+}
+
+function EmptyState({ icon, text }: { icon: string; text: string }) {
+  return (
+    <div className="sb-empty">
+      <span className="sb-empty-icon">{icon}</span>
+      <span>{text}</span>
     </div>
   );
 }
@@ -64,102 +95,108 @@ export function HomeSidebar() {
 
   React.useEffect(() => {
     function load() {
-      apiFetch<SidebarData>('/community/sidebar')
-        .then(setData)
-        .catch(() => {});
+      apiFetch<SidebarData>('/community/sidebar').then(setData).catch(() => {});
     }
     load();
     const id = setInterval(load, 60_000);
     return () => clearInterval(id);
   }, []);
 
-  const online = data?.onlineUsers ?? [];
-  const members = data?.newMembers ?? [];
-  const activity = data?.activity ?? [];
+  const online  = data?.onlineUsers ?? [];
+  const members = data?.newMembers  ?? [];
+  const activity = data?.activity   ?? [];
 
   return (
     <aside className="home-sidebar">
 
-      {/* Members Online */}
-      <div className="sidebar-card">
-        <div className="sidebar-card-header">
-          <span className="sidebar-online-dot" />
-          <span className="sidebar-card-title">Membres en ligne</span>
-          <span className="sidebar-count">({online.length})</span>
-        </div>
+      {/* ── Membres en ligne ── */}
+      <section className="sb-section">
+        <SectionTitle>
+          <span className="sb-online-pulse" />
+          Membres en ligne
+          <span className="sb-count">{online.length}</span>
+        </SectionTitle>
+
         {online.length === 0 ? (
-          <div className="sidebar-empty">
-            <span className="sidebar-empty-icon">🌙</span>
-            <span>Aucun membre en ligne</span>
-          </div>
+          <EmptyState icon="🌙" text="Aucun membre en ligne" />
         ) : (
-          <ul className="sidebar-list">
+          <ul className="sb-list">
             {online.map((u) => (
-              <li key={u.id} className="sidebar-list-item">
-                <div className="sidebar-avatar-wrap">
-                  <MiniAvatar name={u.displayName} />
-                  <span className="sidebar-online-indicator" />
+              <li key={u.id} className="sb-row">
+                <div className="sb-avatar-wrap">
+                  <Avatar name={u.displayName} size={40} />
+                  <span className="sb-online-dot" />
                 </div>
-                <span className="sidebar-item-name">{u.displayName}</span>
+                <div className="sb-info">
+                  <span className="sb-name">{u.displayName}</span>
+                  <span className="sb-sub">En ligne</span>
+                </div>
               </li>
             ))}
           </ul>
         )}
-      </div>
+      </section>
 
-      {/* New Members */}
-      <div className="sidebar-card">
-        <div className="sidebar-card-header">
-          <span className="sidebar-card-icon">✨</span>
-          <span className="sidebar-card-title">Nouveaux membres</span>
-          <span className="sidebar-count">({members.length})</span>
-        </div>
+      <div className="sb-divider" />
+
+      {/* ── Nouveaux membres ── */}
+      <section className="sb-section">
+        <SectionTitle>
+          Nouveaux membres
+          <span className="sb-count">{members.length}</span>
+        </SectionTitle>
+
         {members.length === 0 ? (
-          <div className="sidebar-empty">
-            <span className="sidebar-empty-icon">🚪</span>
-            <span>Aucun membre pour l'instant</span>
-          </div>
+          <EmptyState icon="🚪" text="Aucun membre pour l'instant" />
         ) : (
-          <ul className="sidebar-list">
+          <ul className="sb-list">
             {members.map((m) => (
-              <li key={m.id} className="sidebar-list-item">
-                <MiniAvatar name={m.displayName} />
-                <div className="sidebar-item-info">
-                  <span className="sidebar-item-name">{m.displayName}</span>
-                  <span className="sidebar-item-time">{timeAgo(m.createdAt)}</span>
+              <li key={m.id} className="sb-row sb-row-between">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                  <Avatar name={m.displayName} size={40} />
+                  <div className="sb-info">
+                    <span className="sb-name">{m.displayName}</span>
+                    <span className="sb-sub">{timeAgo(m.createdAt)}</span>
+                  </div>
                 </div>
+                <Link href="/forum" className="sb-btn-discuter">
+                  ♥ Discuter
+                </Link>
               </li>
             ))}
           </ul>
         )}
-      </div>
+      </section>
 
-      {/* Recent Activity */}
-      <div className="sidebar-card">
-        <div className="sidebar-card-header">
-          <span className="sidebar-card-icon">⚡</span>
-          <span className="sidebar-card-title">Activité récente</span>
-          <span className="sidebar-count">({activity.length})</span>
-        </div>
+      <div className="sb-divider" />
+
+      {/* ── Activité récente ── */}
+      <section className="sb-section">
+        <SectionTitle>
+          Activité récente
+          <span className="sb-count">{activity.length}</span>
+        </SectionTitle>
+
         {activity.length === 0 ? (
-          <div className="sidebar-empty">
-            <span className="sidebar-empty-icon">💤</span>
-            <span>Aucune activité pour l'instant</span>
-          </div>
+          <EmptyState icon="💤" text="Aucune activité pour l'instant" />
         ) : (
-          <ul className="sidebar-activity-list">
+          <ul className="sb-list">
             {activity.map((item) => (
-              <li key={item.id} className="sidebar-activity-item">
-                <span className="sidebar-activity-icon">{activityIcon(item.type)}</span>
-                <div className="sidebar-activity-body">
-                  <span className="sidebar-activity-text">{activityLabel(item)}</span>
-                  <span className="sidebar-item-time">{timeAgo(item.at)}</span>
+              <li key={item.id} className="sb-row">
+                <div className="sb-avatar-wrap">
+                  <Avatar name={item.actor} size={36} />
+                  <span className="sb-activity-icon">{activityIcon(item.type)}</span>
+                </div>
+                <div className="sb-info">
+                  <span className="sb-name">{item.actor}</span>
+                  <span className="sb-sub">{activityText(item)}</span>
+                  <span className="sb-time">{timeAgo(item.at)}</span>
                 </div>
               </li>
             ))}
           </ul>
         )}
-      </div>
+      </section>
 
     </aside>
   );
