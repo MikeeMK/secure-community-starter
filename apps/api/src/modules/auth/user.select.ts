@@ -1,11 +1,11 @@
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
-export const safeUserSelect = {
+export const safeUserSelect = Prisma.validator<Prisma.UserSelect>()({
   id: true,
   email: true,
   displayName: true,
   trustLevel: true,
   createdAt: true,
-} satisfies Prisma.UserSelect;
+});
 
 export type SafeUser = Prisma.UserGetPayload<{ select: typeof safeUserSelect }>;

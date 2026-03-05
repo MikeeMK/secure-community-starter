@@ -46,7 +46,6 @@ export function Nav() {
 
         {/* Actions à droite */}
         <div className="nav-actions">
-          <ThemeToggle />
           {estAuthentifie && utilisateur ? (
             <div className="nav-user">
               <Avatar name={utilisateur.displayName} size="sm" />
@@ -65,6 +64,8 @@ export function Nav() {
               </Link>
             </>
           )}
+          <span className="nav-divider" aria-hidden="true" />
+          <ThemeToggle />
         </div>
       </div>
     </nav>

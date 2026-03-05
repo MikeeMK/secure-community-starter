@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import { Avatar } from '../../components/Avatar';
 import { TrustBadge } from '../../components/Badge';
 import { apiFetch } from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
 
 type Message = {
   id: string;
@@ -148,8 +149,8 @@ function BoutonJaime() {
 }
 
 function FormulaireReponse({ sujetId, onPublie }: { sujetId: string; onPublie: (m: Message) => void }) {
+  const { utilisateur } = useAuth();
   const [corps, setCorps] = React.useState('');
-  const [auteurId, setAuteurId] = React.useState('');
   const [chargement, setChargement] = React.useState(false);
   const [erreur, setErreur] = React.useState<string | null>(null);
 
@@ -157,10 +158,15 @@ function FormulaireReponse({ sujetId, onPublie }: { sujetId: string; onPublie: (
     e.preventDefault();
     setChargement(true);
     setErreur(null);
+    if (!utilisateur) {
+      setErreur('Connexion requise');
+      setChargement(false);
+      return;
+    }
     try {
       const message = await apiFetch<Message>(`/community/forum/topics/${sujetId}/posts`, {
         method: 'POST',
-        body: JSON.stringify({ body: corps, authorId: auteurId }),
+        body: JSON.stringify({ body: corps }),
       });
       onPublie(message);
       setCorps('');
@@ -177,10 +183,6 @@ function FormulaireReponse({ sujetId, onPublie }: { sujetId: string; onPublie: (
         Écrire une réponse
       </h3>
       <form onSubmit={handleSubmit} className="stack">
-        <div className="form-group">
-          <label className="form-label">ID auteur (temporaire — viendra de la session)</label>
-          <input className="form-input" value={auteurId} onChange={(e) => setAuteurId(e.target.value)} required placeholder="ID utilisateur" />
-        </div>
         <div className="form-group">
           <textarea
             className="form-textarea"

@@ -47,6 +47,12 @@ pnpm db:seed
 pnpm dev
 ```
 
+## Variables d'environnement
+- `JWT_SECRET` : secret utilisé pour signer les tokens JWT côté API.
+- `JWT_EXPIRES_IN` : durée de vie des JWT (par exemple `1h`).
+- `CLOUDFLARE_TURNSTILE_SECRET` : clé secrète serveur pour valider Turnstile.
+- `NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY` : clé publique utilisée dans les formulaires.
+
 ## Scripts utiles
 - `pnpm dev` : web + api en parallèle
 - `pnpm -C apps/web dev` : web seul

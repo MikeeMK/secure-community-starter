@@ -1,21 +1,30 @@
-import { Body, Controller, Post, Request, Get, UseGuards, BadRequestException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Post,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { z } from 'zod';
+import type { Request as ExpressRequest } from 'express';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
-import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
-import type { Request as ExpressRequest } from 'express';
 
 const RegisterDto = z.object({
   email: z.string().email(),
   displayName: z.string().min(2).max(32),
   password: z.string().min(8).max(128),
-  turnstileToken: z.string().min(1),
+  // Optional: enforced by captcha.service when CLOUDFLARE_TURNSTILE_SECRET is set
+  turnstileToken: z.string().optional(),
 });
 
 const LoginDto = z.object({
   email: z.string().email(),
   password: z.string().min(1),
-  turnstileToken: z.string().min(1).optional(),
+  turnstileToken: z.string().optional(),
 });
 
 @Controller('/auth')
@@ -23,28 +32,33 @@ export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
   @UseGuards(ThrottlerGuard)
-  @Throttle(6, 60)
+  @Throttle(5, 60)
   @Post('/register')
   async register(@Body() body: unknown, @Request() req: ExpressRequest) {
-    const dto = RegisterDto.safeParse(body);
-    if (!dto.success) {
-      throw new BadRequestException(dto.error.message);
+    const result = RegisterDto.safeParse(body);
+    if (!result.success) {
+      throw new BadRequestException(result.error.flatten().fieldErrors);
     }
-    const result = await this.auth.register(dto.data.email, dto.data.displayName, dto.data.password, dto.data.turnstileToken, req.ip);
-    return result;
+    const { email, displayName, password, turnstileToken } = result.data;
+    return this.auth.register(email, displayName, password, turnstileToken, req.ip);
   }
 
   @UseGuards(ThrottlerGuard)
-  @Throttle(6, 60)
+  @Throttle(10, 60)
   @Post('/login')
   async login(@Body() body: unknown, @Request() req: ExpressRequest) {
-    const dto = LoginDto.parse(body);
-    return this.auth.login(dto.email, dto.password, dto.turnstileToken, req.ip);
+    const result = LoginDto.safeParse(body);
+    if (!result.success) {
+      throw new BadRequestException(result.error.flatten().fieldErrors);
+    }
+    const { email, password, turnstileToken } = result.data;
+    return this.auth.login(email, password, turnstileToken, req.ip);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('/me')
-  async me(@Request() req: ExpressRequest) {
+  me(@Request() req: ExpressRequest) {
+    // req.user is populated by JwtStrategy.validate() after DB lookup
     return { user: req.user };
   }
 }

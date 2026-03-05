@@ -1,9 +1,19 @@
-import { Body, Controller, Get, Param, Post, Request, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  Post,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
 import { z } from 'zod';
 import type { Request as ExpressRequest } from 'express';
-import { ForumService } from './forum.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { SafeUser } from '../auth/user.select';
+import { ForumService } from './forum.service';
+
+type AuthUser = { id: string; email: string; trustLevel: string };
 
 const CreateTopicDto = z.object({
   title: z.string().min(3).max(120),
@@ -20,10 +30,6 @@ const CreatePostDto = z.object({
 export class ForumController {
   constructor(private readonly forum: ForumService) {}
 
-  private getUser(req: ExpressRequest): SafeUser {
-    return req.user as SafeUser;
-  }
-
   @Get('/topics')
   async listTopics() {
     return this.forum.listTopics();
@@ -31,20 +37,26 @@ export class ForumController {
 
   @Get('/topics/:id')
   async getTopic(@Param('id') id: string) {
-    return this.forum.getTopic(id);
+    const topic = await this.forum.getTopic(id);
+    if (!topic) throw new NotFoundException('Topic not found');
+    return topic;
   }
 
   @Post('/topics')
-  async createTopic(@Request() req: ExpressRequest, @Body() body: unknown) {
+  async createTopic(@Body() body: unknown, @Request() req: ExpressRequest) {
     const dto = CreateTopicDto.parse(body);
-    const user = this.getUser(req);
-    return this.forum.createTopic({ authorId: user.id, ...dto });
+    const user = req.user as AuthUser;
+    return this.forum.createTopic({ ...dto, authorId: user.id });
   }
 
   @Post('/topics/:topicId/posts')
-  async createPost(@Request() req: ExpressRequest, @Param('topicId') topicId: string, @Body() body: unknown) {
+  async createPost(
+    @Param('topicId') topicId: string,
+    @Body() body: unknown,
+    @Request() req: ExpressRequest,
+  ) {
     const dto = CreatePostDto.parse(body);
-    const user = this.getUser(req);
-    return this.forum.createPost({ topicId, authorId: user.id, ...dto });
+    const user = req.user as AuthUser;
+    return this.forum.createPost({ topicId, body: dto.body, authorId: user.id });
   }
 }

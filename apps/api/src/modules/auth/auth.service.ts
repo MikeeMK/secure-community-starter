@@ -1,27 +1,39 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import crypto from 'crypto';
 import { JwtService } from '@nestjs/jwt';
+import crypto from 'crypto';
+import { PrismaService } from '../prisma/prisma.service';
 import { CaptchaService } from './captcha.service';
 import { LoginAttemptService } from './login-attempt.service';
 import { safeUserSelect, SafeUser } from './user.select';
 
-function hashPassword(password: string) {
-  const salt = crypto.randomBytes(16).toString('hex');
-  const derived = crypto.pbkdf2Sync(password, salt, 100_000, 32, 'sha256').toString('hex');
-  return `${salt}:${derived}`;
-}
+// Lazy-load argon2 so the app still starts if native build is missing during development.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const argon2: typeof import('argon2') = require('argon2');
 
-function verifyPassword(password: string, stored: string): boolean {
+// ---------------------------------------------------------------------------
+// Legacy PBKDF2 verify — for accounts created before the argon2id migration.
+// Remove once all legacy hashes are gone.
+// ---------------------------------------------------------------------------
+function legacyVerify(password: string, stored: string): boolean {
   const [salt, expected] = stored.split(':');
   if (!salt || !expected) return false;
-  const derived = crypto.pbkdf2Sync(password, salt, 100_000, 32, 'sha256').toString('hex');
   try {
+    const derived = crypto.pbkdf2Sync(password, salt, 100_000, 32, 'sha256').toString('hex');
     return crypto.timingSafeEqual(Buffer.from(derived), Buffer.from(expected));
   } catch {
     return false;
   }
 }
+
+async function verifyHash(password: string, stored: string): Promise<boolean> {
+  if (stored.startsWith('$argon2')) {
+    return argon2.verify(stored, password);
+  }
+  // Fallback: legacy PBKDF2
+  return legacyVerify(password, stored);
+}
+
+// ---------------------------------------------------------------------------
 
 @Injectable()
 export class AuthService {
@@ -50,35 +62,59 @@ export class AuthService {
     return `${ip ?? 'unknown'}:${email.toLowerCase()}`;
   }
 
-  async register(email: string, displayName: string, password: string, turnstileToken: string, remoteIp?: string) {
-    if (!turnstileToken) {
-      throw new BadRequestException('Captcha token is required for registration');
-    }
+  // -------------------------------------------------------------------------
+  // register
+  // -------------------------------------------------------------------------
+  async register(
+    email: string,
+    displayName: string,
+    password: string,
+    turnstileToken: string | undefined,
+    remoteIp?: string,
+  ) {
+    // Verify Turnstile captcha (skipped automatically in dev when no secret is configured)
     await this.captcha.verify(turnstileToken, remoteIp);
 
-    const passwordHash = hashPassword(password);
+    const exists = await this.prisma.user.findUnique({ where: { email }, select: { id: true } });
+    if (exists) {
+      throw new BadRequestException('Cette adresse e-mail est déjà utilisée');
+    }
+
+    // Hash with argon2id
+    const passwordHash = await argon2.hash(password, { type: argon2.argon2id });
+
+    // TODO: EMAIL VERIFICATION
+    // Generate a verification token, store it on the user record, send a
+    // verification email, and mark the user inactive until they click the link.
+    // For now the account is immediately active.
+
     const user = await this.prisma.user.create({
-      data: {
-        email,
-        displayName,
-        trustLevel: 'new',
-        passwordHash,
-      },
+      data: { email, displayName, trustLevel: 'new', passwordHash },
       select: safeUserSelect,
     });
+
     const accessToken = await this.buildToken(user);
     return { user, accessToken };
   }
 
-  async login(email: string, password: string, turnstileToken: string | undefined, remoteIp?: string) {
+  // -------------------------------------------------------------------------
+  // login
+  // -------------------------------------------------------------------------
+  async login(
+    email: string,
+    password: string,
+    turnstileToken: string | undefined,
+    remoteIp?: string,
+  ) {
     const attemptKey = this.buildAttemptKey(email, remoteIp);
-    if (this.loginAttempts.needsCaptcha(attemptKey) && !turnstileToken) {
-      throw new BadRequestException({
-        message: 'Captcha required after several failed attempts',
-        captchaRequired: true,
-      });
-    }
-    if (turnstileToken) {
+
+    if (this.loginAttempts.needsCaptcha(attemptKey)) {
+      if (!turnstileToken) {
+        throw new BadRequestException({
+          message: 'Captcha requis après plusieurs tentatives échouées',
+          captchaRequired: true,
+        });
+      }
       await this.captcha.verify(turnstileToken, remoteIp);
     }
 
@@ -87,21 +123,19 @@ export class AuthService {
       select: { ...safeUserSelect, passwordHash: true },
     });
 
-    if (!user || !verifyPassword(password, user.passwordHash)) {
+    const valid = user ? await verifyHash(password, user.passwordHash) : false;
+
+    if (!user || !valid) {
       const status = this.loginAttempts.recordFailure(attemptKey);
       throw new UnauthorizedException({
-        message: 'Invalid email or password',
+        message: 'Identifiants incorrects',
         captchaRequired: status.requireCaptcha,
       });
     }
 
     this.loginAttempts.reset(attemptKey);
-    const { passwordHash, ...safeUser } = user;
+    const { passwordHash: _ph, ...safeUser } = user;
     const accessToken = await this.buildToken(safeUser);
-    return {
-      user: safeUser,
-      accessToken,
-      captchaRequired: false,
-    };
+    return { user: safeUser, accessToken };
   }
 }

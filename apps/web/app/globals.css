@@ -1696,6 +1696,14 @@ html.dark .safety-check {
   .footer-inner { flex-direction: column; text-align: center; gap: 16px; }
 }
 
+.nav-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
 /* --- NAV USER MENU --- */
 .nav-user {
   display: flex;

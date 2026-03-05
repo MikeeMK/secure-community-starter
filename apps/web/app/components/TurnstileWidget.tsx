@@ -21,9 +21,17 @@ function loadTurnstileScript() {
   if (scriptPromise) {
     return scriptPromise;
   }
-  const existing = document.getElementById(SCRIPT_ID);
-  if (existing && window.turnstile) {
-    scriptPromise = Promise.resolve();
+
+  const existing = document.getElementById(SCRIPT_ID) as HTMLScriptElement | null;
+  if (existing) {
+    scriptPromise = new Promise((resolve, reject) => {
+      if (window.turnstile) {
+        resolve();
+        return;
+      }
+      existing.addEventListener('load', () => resolve(), { once: true });
+      existing.addEventListener('error', () => reject(new Error('Failed to load Turnstile widget')), { once: true });
+    });
     return scriptPromise;
   }
 
