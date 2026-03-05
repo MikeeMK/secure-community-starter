@@ -174,6 +174,24 @@ export class AuthService {
   }
 
   // -------------------------------------------------------------------------
+  // updateLastActive — throttled: only writes if stale by more than 4 minutes
+  // -------------------------------------------------------------------------
+  async updateLastActive(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { lastActiveAt: true },
+    });
+    const threshold = new Date(Date.now() - 4 * 60 * 1000);
+    if (!user || !user.lastActiveAt || user.lastActiveAt < threshold) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { lastActiveAt: new Date() },
+      });
+    }
+    return { ok: true };
+  }
+
+  // -------------------------------------------------------------------------
   // login
   // -------------------------------------------------------------------------
   async login(

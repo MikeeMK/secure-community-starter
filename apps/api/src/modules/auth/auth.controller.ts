@@ -99,4 +99,11 @@ export class AuthController {
     if (!token) throw new BadRequestException('Token manquant');
     return this.auth.verifyEmail(token);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('/ping')
+  async ping(@Request() req: ExpressRequest) {
+    const user = req.user as AuthUser;
+    return this.auth.updateLastActive(user.id);
+  }
 }

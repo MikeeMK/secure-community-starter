@@ -77,6 +77,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
   }, [clearAuth]);
 
+  // Ping the server every 5 minutes to update lastActiveAt
+  React.useEffect(() => {
+    if (!utilisateur) return;
+    apiFetch('/auth/ping', { method: 'POST' }).catch(() => {});
+    const id = setInterval(() => {
+      apiFetch('/auth/ping', { method: 'POST' }).catch(() => {});
+    }, 5 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [utilisateur]);
+
   const connecter = React.useCallback((user: UtilisateurAuth, token: string) => {
     setUtilisateur(user);
     if (typeof window !== 'undefined') {

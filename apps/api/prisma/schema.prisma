@@ -36,6 +36,7 @@ model User {
   trustLevel   TrustLevel @default(new)
 
   emailVerifiedAt DateTime?
+  lastActiveAt    DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

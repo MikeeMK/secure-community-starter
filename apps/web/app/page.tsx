@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { HomeSidebar } from './components/HomeSidebar';
 
 const MEMBRES = [
   { initiales: 'CL', nom: 'Claire', age: 27, ville: 'Paris',     gradient: 'linear-gradient(135deg, #f472b6, #ec4899)', online: true  },
@@ -127,6 +128,12 @@ export default function Accueil() {
       </section>
 
       {/* ====================================================
+          MAIN CONTENT + SIDEBAR
+          ==================================================== */}
+      <div className="homepage-with-sidebar">
+        <div className="homepage-main">
+
+      {/* ====================================================
           MEMBRES PRÈS DE CHEZ VOUS
           ==================================================== */}
       <section className="members-section">
@@ -219,6 +226,10 @@ export default function Accueil() {
           </div>
         </div>
       </div>
+
+        </div>{/* end homepage-main */}
+        <HomeSidebar />
+      </div>{/* end homepage-with-sidebar */}
 
       {/* ====================================================
           SÉCURITÉ ET MODÉRATION

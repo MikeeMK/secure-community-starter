@@ -5,10 +5,12 @@ import { ForumController } from './forum.controller';
 import { ForumService } from './forum.service';
 import { GroupsController } from './groups.controller';
 import { GroupsService } from './groups.service';
+import { SidebarController } from './sidebar.controller';
+import { SidebarService } from './sidebar.service';
 
 @Module({
   imports: [PrismaModule, AuthModule],
-  controllers: [ForumController, GroupsController],
-  providers: [ForumService, GroupsService],
+  controllers: [ForumController, GroupsController, SidebarController],
+  providers: [ForumService, GroupsService, SidebarService],
 })
 export class CommunityModule {}
