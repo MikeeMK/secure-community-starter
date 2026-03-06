@@ -48,6 +48,13 @@ export class AuthService {
     private readonly email: EmailService,
   ) {}
 
+  /** Returns a devUrl field only in non-production environments without SMTP configured. */
+  private devLink(path: string) {
+    if (process.env.NODE_ENV === 'production' || process.env.SMTP_HOST) return {};
+    const base = process.env.APP_URL ?? 'http://localhost:3000';
+    return { devUrl: `${base}${path}` };
+  }
+
   private buildToken(user: SafeUser) {
     return this.jwt.signAsync(
       {
@@ -99,7 +106,8 @@ export class AuthService {
     this.email.sendVerificationEmail(email, verifToken).catch(() => {});
 
     const accessToken = await this.buildToken(user);
-    return { user, accessToken };
+    const devOnly = this.devLink(`/verifier-email?token=${verifToken}`);
+    return { user, accessToken, ...devOnly };
   }
 
   // -------------------------------------------------------------------------
@@ -152,6 +160,8 @@ export class AuthService {
         data: { token, userId: user.id, expiresAt },
       });
       this.email.sendPasswordResetEmail(email, token).catch(() => {});
+      const devOnly = this.devLink(`/reinitialiser-mot-de-passe?token=${token}`);
+      return { success: true, ...devOnly };
     }
     return { success: true };
   }

@@ -9,16 +9,18 @@ export default function PageMotDePasseOublie() {
   const [chargement, setChargement] = React.useState(false);
   const [envoye, setEnvoye] = React.useState(false);
   const [erreur, setErreur] = React.useState<string | null>(null);
+  const [devUrl, setDevUrl] = React.useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setChargement(true);
     setErreur(null);
     try {
-      await apiFetch('/auth/forgot-password', {
+      const res = await apiFetch<{ success: boolean; devUrl?: string }>('/auth/forgot-password', {
         method: 'POST',
         body: JSON.stringify({ email }),
       });
+      if (res.devUrl) setDevUrl(res.devUrl);
       setEnvoye(true);
     } catch (e) {
       setErreur(e instanceof Error ? e.message : 'Erreur inconnue');
@@ -46,11 +48,20 @@ export default function PageMotDePasseOublie() {
         <div className="card card-lg">
           {envoye ? (
             <div style={{ textAlign: 'center', padding: '8px 0' }}>
-              <div style={{ fontSize: 40, marginBottom: 16 }}>📬</div>
-              <p style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>E-mail envoyé !</p>
-              <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
-                Si un compte existe avec cette adresse, vous recevrez un lien valable 1 heure.
+              <div style={{ fontSize: 40, marginBottom: 16 }}>{devUrl ? '🛠' : '📬'}</div>
+              <p style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>
+                {devUrl ? 'Mode dev — lien direct' : 'E-mail envoyé !'}
               </p>
+              <p style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: devUrl ? 16 : 0 }}>
+                {devUrl
+                  ? 'SMTP non configuré. Utilisez ce lien pour réinitialiser votre mot de passe :'
+                  : 'Si un compte existe avec cette adresse, vous recevrez un lien valable 1 heure.'}
+              </p>
+              {devUrl && (
+                <a href={devUrl} style={{ fontSize: 13, wordBreak: 'break-all', color: 'var(--primary)', textDecoration: 'underline' }}>
+                  {devUrl}
+                </a>
+              )}
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="stack">

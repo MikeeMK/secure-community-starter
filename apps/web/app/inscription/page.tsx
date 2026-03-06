@@ -10,6 +10,7 @@ import { TurnstileWidget } from '../components/TurnstileWidget';
 type RegisterResult = {
   user: { id: string; displayName: string; email: string; trustLevel: string };
   accessToken: string;
+  devUrl?: string;
 };
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY ?? '';
@@ -25,6 +26,7 @@ export default function PageInscription() {
   const [erreur, setErreur] = React.useState<string | null>(null);
   const [captchaToken, setCaptchaToken] = React.useState<string | null>(null);
   const [captchaReset, setCaptchaReset] = React.useState(0);
+  const [devUrl, setDevUrl] = React.useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -47,7 +49,11 @@ export default function PageInscription() {
       connecter(result.user, result.accessToken);
       setCaptchaToken(null);
       setCaptchaReset((v) => v + 1);
-      router.push('/forum');
+      if (result.devUrl) {
+        setDevUrl(result.devUrl);
+      } else {
+        router.push('/forum');
+      }
     } catch (e) {
       if (e instanceof ApiFetchError && e.captchaRequired) {
         setCaptchaToken(null);
@@ -70,6 +76,25 @@ export default function PageInscription() {
         <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 6, letterSpacing: '-0.02em' }}>Créer un compte</h1>
         <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Rejoignez la communauté gratuitement</p>
       </div>
+
+      {devUrl && (
+        <div style={{ background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.4)', borderRadius: 'var(--radius)', padding: '16px', marginBottom: 20 }}>
+          <p style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: 'var(--warning)' }}>
+            🛠 Mode dev — SMTP non configuré
+          </p>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10 }}>
+            Cliquez sur le lien ci-dessous pour vérifier votre e-mail :
+          </p>
+          <a href={devUrl} style={{ fontSize: 12, wordBreak: 'break-all', color: 'var(--primary)', textDecoration: 'underline' }}>
+            {devUrl}
+          </a>
+          <div style={{ marginTop: 12 }}>
+            <a href="/forum" style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)' }}>
+              Continuer sans vérifier →
+            </a>
+          </div>
+        </div>
+      )}
 
       <div className="card card-lg">
         <form onSubmit={handleSubmit} className="stack">
