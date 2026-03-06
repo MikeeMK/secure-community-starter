@@ -41,7 +41,7 @@ export default function RegisterPage() {
           email,
           displayName,
           password,
-          turnstileToken: captchaToken,
+          turnstileToken: captchaToken ?? undefined,
         }),
       });
       connecter(result.user, result.accessToken);

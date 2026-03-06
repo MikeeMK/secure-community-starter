@@ -41,7 +41,7 @@ export default function PageInscription() {
           email,
           displayName: nomAffiche,
           password: motDePasse,
-          turnstileToken: captchaToken,
+          turnstileToken: captchaToken ?? undefined,
         }),
       });
       connecter(result.user, result.accessToken);
