@@ -256,6 +256,17 @@ img { display: block; max-width: 100%; }
   gap: 6px;
 }
 
+/* Logo image — fond blanc transparent sur clair, inversé sur sombre */
+.nav-logo img,
+.footer-logo img {
+  mix-blend-mode: multiply;
+}
+html.dark .nav-logo img,
+html.dark .footer-logo img {
+  mix-blend-mode: normal;
+  filter: brightness(0) invert(1) sepia(1) saturate(4) hue-rotate(280deg);
+}
+
 .nav-logo {
   font-weight: 800;
   font-size: 17px;

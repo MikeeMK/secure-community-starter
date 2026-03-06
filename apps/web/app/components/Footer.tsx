@@ -8,23 +8,7 @@ export function Footer() {
       <div className="footer-inner">
         {/* Logo */}
         <Link href="/" className="footer-logo">
-          <span
-            style={{
-              width: 24,
-              height: 24,
-              borderRadius: 6,
-              background: 'linear-gradient(135deg, #0d9488, #2dd4bf)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 12,
-              fontWeight: 800,
-              color: '#042f2e',
-            }}
-          >
-            C
-          </span>
-          Communauté
+          <img src="/logo.png" alt="Velentra" style={{ height: 28, width: 'auto' }} />
         </Link>
 
         {/* Liens légaux */}
@@ -38,7 +22,7 @@ export function Footer() {
 
         {/* Copyright */}
         <p className="footer-copy">
-          &copy; {annee} Communauté — Tous droits réservés
+          &copy; {annee} Velentra — Tous droits réservés
         </p>
       </div>
     </footer>

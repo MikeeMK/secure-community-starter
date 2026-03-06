@@ -5,8 +5,9 @@ import { Footer } from './components/Footer';
 import { AuthProvider } from './context/AuthContext';
 
 export const metadata: Metadata = {
-  title: 'Communauté',
-  description: 'Une plateforme communautaire sécurisée — discussions, groupes et connexions authentiques.',
+  title: 'Velentra',
+  description: 'Une communauté intime pour discuter, explorer et faire des rencontres en toute sécurité.',
+  icons: { icon: '/favicon.png' },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

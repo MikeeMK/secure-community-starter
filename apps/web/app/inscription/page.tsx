@@ -69,9 +69,8 @@ export default function PageInscription() {
     <div style={{ maxWidth: 440, margin: '56px auto' }}>
       {/* En-tête */}
       <div style={{ textAlign: 'center', marginBottom: 32 }}>
-        <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 10, color: 'var(--text)', textDecoration: 'none', marginBottom: 20 }}>
-          <span className="nav-logo-icon" style={{ width: 36, height: 36, fontSize: 18 }}>C</span>
-          <span style={{ fontWeight: 800, fontSize: 18 }}>Communauté</span>
+        <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none', marginBottom: 20 }}>
+          <img src="/logo.png" alt="Velentra" style={{ height: 44, width: 'auto' }} />
         </Link>
         <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 6, letterSpacing: '-0.02em' }}>Créer un compte</h1>
         <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Rejoignez la communauté gratuitement</p>

@@ -69,9 +69,8 @@ export default function ConnexionClient() {
       <div style={{ width: '100%', maxWidth: 420 }}>
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: 36 }}>
-          <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 10, color: 'var(--text)', textDecoration: 'none', marginBottom: 24 }}>
-            <span className="nav-logo-icon" style={{ width: 40, height: 40, fontSize: 20 }}>C</span>
-            <span style={{ fontWeight: 800, fontSize: 20, letterSpacing: '-0.02em' }}>Communauté</span>
+          <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none', marginBottom: 24 }}>
+            <img src="/logo.png" alt="Velentra" style={{ height: 48, width: 'auto' }} />
           </Link>
           <h1 style={{ fontSize: 26, fontWeight: 900, marginBottom: 8, letterSpacing: '-0.03em' }}>
             Bon retour

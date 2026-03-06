@@ -28,8 +28,7 @@ export function Nav() {
       <div className="nav-inner">
         {/* Logo */}
         <Link href="/" className="nav-logo">
-          <span className="nav-logo-heart">♥</span>
-          Communauté
+          <img src="/logo.png" alt="Velentra" style={{ height: 36, width: 'auto', display: 'block' }} />
         </Link>
 
         {/* Liens principaux */}
