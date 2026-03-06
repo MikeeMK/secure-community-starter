@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import crypto from 'crypto';
+import { randomBytes, timingSafeEqual, pbkdf2Sync } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { CaptchaService } from './captcha.service';
 import { EmailService } from './email.service';
@@ -19,8 +19,8 @@ function legacyVerify(password: string, stored: string): boolean {
   const [salt, expected] = stored.split(':');
   if (!salt || !expected) return false;
   try {
-    const derived = crypto.pbkdf2Sync(password, salt, 100_000, 32, 'sha256').toString('hex');
-    return crypto.timingSafeEqual(Buffer.from(derived), Buffer.from(expected));
+    const derived = pbkdf2Sync(password, salt, 100_000, 32, 'sha256').toString('hex');
+    return timingSafeEqual(Buffer.from(derived), Buffer.from(expected));
   } catch {
     return false;
   }
@@ -91,7 +91,7 @@ export class AuthService {
     });
 
     // Send email verification (non-blocking: don't fail register if email fails)
-    const verifToken = crypto.randomBytes(32).toString('hex');
+    const verifToken = randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
     await this.prisma.emailVerificationToken.create({
       data: { token: verifToken, userId: user.id, expiresAt },
@@ -146,7 +146,7 @@ export class AuthService {
       // Invalidate existing reset tokens for this user
       await this.prisma.passwordResetToken.deleteMany({ where: { userId: user.id } });
 
-      const token = crypto.randomBytes(32).toString('hex');
+      const token = randomBytes(32).toString('hex');
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1h
       await this.prisma.passwordResetToken.create({
         data: { token, userId: user.id, expiresAt },
