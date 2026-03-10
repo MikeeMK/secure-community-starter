@@ -106,4 +106,11 @@ export class AuthController {
     const user = req.user as AuthUser;
     return this.auth.updateLastActive(user.id);
   }
+
+  /** Dev-only: login without password */
+  @Post('/dev-login')
+  async devLogin(@Body() body: unknown) {
+    const dto = z.object({ email: z.string().email() }).parse(body);
+    return this.auth.devLogin(dto.email);
+  }
 }

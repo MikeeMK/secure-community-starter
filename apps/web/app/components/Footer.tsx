@@ -6,11 +6,6 @@ export function Footer() {
   return (
     <footer className="footer">
       <div className="footer-inner">
-        {/* Logo */}
-        <Link href="/" className="footer-logo">
-          <img src="/logo.png" alt="Velentra" style={{ height: 28, width: 'auto' }} />
-        </Link>
-
         {/* Liens légaux */}
         <div className="footer-links">
           <Link href="/legal/cgu" className="footer-link">CGU</Link>

@@ -9,9 +9,9 @@ datasource db {
 
 enum TrustLevel {
   new
-  normal
-  trusted
-  restricted
+  member
+  moderator
+  super_admin
 }
 
 enum ReportTargetType {
@@ -35,8 +35,13 @@ model User {
   passwordHash String
   trustLevel   TrustLevel @default(new)
 
-  emailVerifiedAt DateTime?
-  lastActiveAt    DateTime?
+  emailVerifiedAt      DateTime?
+  lastActiveAt         DateTime?
+  displayNameUpdatedAt DateTime?
+  isAdultVerified       Boolean   @default(false)
+  adultVerifiedAt       DateTime?
+  verificationProvider  String?
+  verificationReference String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -44,10 +49,51 @@ model User {
   forumTopics         ForumTopic[]
   forumPosts          ForumPost[]
   reportsMade         Report[]                @relation("ReportsMade")
+  reportsHandled      Report[]                @relation("ReportsHandled")
   verificationTokens  EmailVerificationToken[]
   passwordResetTokens PasswordResetToken[]
+  feedbacks           Feedback[]
+  newsAuthored        News[]
+  notifications       Notification[]
+  profile             UserProfile?
+  settings            UserSettings?
+  topicLikes          ForumTopicLike[]
+  chatConvs1          ChatConversation[] @relation("ChatUser1")
+  chatConvs2          ChatConversation[] @relation("ChatUser2")
+  chatMessages        ChatMessage[]
+  tokenBalance        TokenBalance?
+  tokenTransactions   TokenTransaction[]
+  favorites           AnnouncementFavorite[]
 
   @@index([trustLevel])
+}
+
+model UserSettings {
+  userId              String  @id
+  allowChat           Boolean @default(true)
+  hideFromSuggestions Boolean @default(false)
+  allowNotifLikes     Boolean @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UserProfile {
+  id                 String   @id @default(cuid())
+  age                Int?
+  city               String?
+  gender             String?
+  orientation        String?
+  relationshipStatus String?
+  lookingFor         String[] @default([])
+  interactionType    String[] @default([])
+  ageMin             Int?
+  ageMax             Int?
+  interests          String[] @default([])
+  bio                String?
+  updatedAt          DateTime @updatedAt
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model EmailVerificationToken {
@@ -84,10 +130,15 @@ model Group {
 }
 
 model ForumTopic {
-  id        String   @id @default(cuid())
-  title     String
-  body      String
-  createdAt DateTime @default(now())
+  id             String   @id @default(cuid())
+  title          String
+  body           String
+  isAnnouncement Boolean  @default(false)
+  category       String   @default("Autre")
+  region         String?
+  photos         Json?
+  closed         Boolean  @default(false)
+  createdAt      DateTime @default(now())
 
   authorId String
   author   User   @relation(fields: [authorId], references: [id])
@@ -95,9 +146,24 @@ model ForumTopic {
   groupId String?
   group   Group? @relation(fields: [groupId], references: [id])
 
-  posts ForumPost[]
+  posts     ForumPost[]
+  likes     ForumTopicLike[]
+  favorites AnnouncementFavorite[]
 
   @@index([createdAt])
+  @@index([isAnnouncement])
+}
+
+model ForumTopicLike {
+  topicId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  topic ForumTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([topicId, userId])
+  @@index([userId])
 }
 
 model ForumPost {
@@ -121,10 +187,149 @@ model Report {
   targetType ReportTargetType
   targetId   String
   reason     String
+  resolutionReason String?
+  rewardTokens     Int      @default(0)
+  handledById      String?
+  handledBy        User?    @relation("ReportsHandled", fields: [handledById], references: [id])
 
   reporterId String
   reporter   User @relation("ReportsMade", fields: [reporterId], references: [id])
 
   @@index([status, createdAt])
   @@index([targetType])
+}
+
+model Feedback {
+  id         String   @id @default(cuid())
+  content    String
+  aiAnalysis Json?    // { sentiment, category, tags, summary }
+  createdAt  DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  newsFeedbacks NewsFeedback[]
+
+  @@index([createdAt])
+  @@index([userId])
+}
+
+model News {
+  id          String    @id @default(cuid())
+  title       String
+  content     String
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  newsFeedbacks NewsFeedback[]
+  notifications Notification[]
+
+  @@index([publishedAt])
+}
+
+model NewsFeedback {
+  newsId     String
+  feedbackId String
+  news       News     @relation(fields: [newsId], references: [id], onDelete: Cascade)
+  feedback   Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+
+  @@id([newsId, feedbackId])
+}
+
+model ChatConversation {
+  id             String   @id @default(cuid())
+  announcementId String?
+  createdAt      DateTime @default(now())
+
+  user1Id String
+  user2Id String
+  user1   User   @relation("ChatUser1", fields: [user1Id], references: [id], onDelete: Cascade)
+  user2   User   @relation("ChatUser2", fields: [user2Id], references: [id], onDelete: Cascade)
+
+  messages ChatMessage[]
+
+  @@unique([user1Id, user2Id])
+  @@index([user1Id])
+  @@index([user2Id])
+}
+
+model ChatMessage {
+  id             String   @id @default(cuid())
+  content        String
+  read           Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  conversationId String
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  senderId String
+  sender   User   @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  message   String
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  newsId String?
+  news   News?   @relation(fields: [newsId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+}
+
+model TokenBalance {
+  userId            String   @id
+  balance           Int      @default(0)
+  awardedMilestones String[] @default([])
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model TokenTransaction {
+  id        String   @id @default(cuid())
+  amount    Int
+  reason    String
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AnnouncementFavorite {
+  userId    String
+  topicId   String
+  createdAt DateTime @default(now())
+
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topic ForumTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@id([userId, topicId])
+  @@index([userId])
+}
+
+model FaqItem {
+  id           String   @id @default(cuid())
+  question     String
+  answer       String
+  category     String
+  displayOrder Int      @default(0)
+  published    Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([category, displayOrder])
 }

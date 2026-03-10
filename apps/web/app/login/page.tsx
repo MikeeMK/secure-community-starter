@@ -47,7 +47,7 @@ export default function LoginPage() {
       setCaptchaRequired(false);
       setCaptchaToken(null);
       setCaptchaReset((v) => v + 1);
-      router.push('/forum');
+      router.push('/dashboard');
     } catch (e) {
       if (e instanceof ApiFetchError && e.captchaRequired) {
         setCaptchaRequired(true);

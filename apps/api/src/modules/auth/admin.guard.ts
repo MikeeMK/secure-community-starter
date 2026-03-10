@@ -5,11 +5,7 @@ type AuthUser = { id: string; email: string; trustLevel: string };
 
 /**
  * Must be used AFTER JwtAuthGuard so req.user is already populated.
- *
- * Grants access to users whose trustLevel is 'trusted' OR whose email
- * matches the ADMIN_EMAIL env variable.
- *
- * TODO: replace with a proper roles/permissions system when the platform grows.
+ * Grants access only to super_admin users.
  */
 @Injectable()
 export class AdminGuard implements CanActivate {
@@ -19,10 +15,27 @@ export class AdminGuard implements CanActivate {
 
     if (!user) throw new ForbiddenException('Authentication required');
 
-    const adminEmail = process.env.ADMIN_EMAIL ?? '';
-    const isAdmin = user.trustLevel === 'trusted' || (adminEmail && user.email === adminEmail);
+    if (user.trustLevel !== 'super_admin') {
+      throw new ForbiddenException('Insufficient permissions');
+    }
 
-    if (!isAdmin) throw new ForbiddenException('Insufficient permissions');
+    return true;
+  }
+}
+
+/**
+ * Grants access to moderator OR super_admin users.
+ */
+@Injectable()
+export class StaffGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
+    const req = context.switchToHttp().getRequest<Request>();
+    const user = req.user as AuthUser | undefined;
+
+    if (!user) throw new ForbiddenException('Authentication required');
+
+    const isStaff = user.trustLevel === 'moderator' || user.trustLevel === 'super_admin';
+    if (!isStaff) throw new ForbiddenException('Insufficient permissions');
 
     return true;
   }

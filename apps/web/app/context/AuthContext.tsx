@@ -8,6 +8,7 @@ export type UtilisateurAuth = {
   displayName: string;
   email: string;
   trustLevel: string;
+  isAdultVerified?: boolean;
 };
 
 interface AuthContextType {
@@ -37,18 +38,7 @@ function supprimerCookieAuth() {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [utilisateur, setUtilisateur] = React.useState<UtilisateurAuth | null>(() => {
-    if (typeof window === 'undefined') {
-      return null;
-    }
-    try {
-      const stored = localStorage.getItem(USER_STORAGE_KEY);
-      return stored ? (JSON.parse(stored) as UtilisateurAuth) : null;
-    } catch {
-      localStorage.removeItem(USER_STORAGE_KEY);
-      return null;
-    }
-  });
+  const [utilisateur, setUtilisateur] = React.useState<UtilisateurAuth | null>(null);
 
   const clearAuth = React.useCallback(() => {
     setUtilisateur(null);

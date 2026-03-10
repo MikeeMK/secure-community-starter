@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ApiFetchError, apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { TurnstileWidget } from '../components/TurnstileWidget';
+import { checkSupabaseLogin } from '../lib/supabaseClient';
 
 type LoginResult = {
   user: { id: string; displayName: string; email: string; trustLevel: string };
@@ -37,6 +38,13 @@ export default function ConnexionClient() {
     setChargement(true);
     setErreur(null);
     try {
+      const supa = await checkSupabaseLogin(email, motDePasse);
+      if (!supa.ok) {
+        setErreur(supa.message ?? 'Connexion impossible via Supabase');
+        setChargement(false);
+        return;
+      }
+
       const body = {
         email,
         password: motDePasse,
@@ -50,7 +58,7 @@ export default function ConnexionClient() {
       setCaptchaRequired(false);
       setCaptchaToken(null);
       setCaptchaReset((v) => v + 1);
-      const redirect = params.get('redirect') ?? '/forum';
+      const redirect = params.get('redirect') ?? '/dashboard';
       router.push(redirect);
     } catch (e) {
       if (e instanceof ApiFetchError && e.captchaRequired) {
@@ -64,14 +72,27 @@ export default function ConnexionClient() {
     }
   }
 
+  async function devLogin() {
+    setChargement(true);
+    setErreur(null);
+    try {
+      const resultat = await apiFetch<LoginResult>('/auth/dev-login', {
+        method: 'POST',
+        body: JSON.stringify({ email: 'mk.chaouch@gmail.com' }),
+      });
+      connecter(resultat.user, resultat.accessToken);
+      router.push('/dashboard');
+    } catch (e) {
+      setErreur(e instanceof Error ? e.message : 'Erreur inconnue');
+    } finally {
+      setChargement(false);
+    }
+  }
+
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
-      <div style={{ width: '100%', maxWidth: 420 }}>
-        {/* Logo */}
+    <div style={{ maxWidth: 420, margin: '56px auto', padding: '0 24px' }}>
+      <div>
         <div style={{ textAlign: 'center', marginBottom: 36 }}>
-          <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none', marginBottom: 24 }}>
-            <img src="/logo.png" alt="Velentra" style={{ height: 48, width: 'auto' }} />
-          </Link>
           <h1 style={{ fontSize: 26, fontWeight: 900, marginBottom: 8, letterSpacing: '-0.03em' }}>
             Bon retour
           </h1>
@@ -138,16 +159,41 @@ export default function ConnexionClient() {
             </button>
           </form>
 
+          {process.env.NODE_ENV !== 'production' && (
+            <>
+              <hr className="divider" style={{ margin: '20px 0' }} />
+              <button
+                type="button"
+                onClick={devLogin}
+                disabled={chargement}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  background: 'linear-gradient(135deg,#7c3aed,#9c27b0)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 8,
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  opacity: chargement ? 0.6 : 1,
+                }}
+              >
+                ⚡ Dev — Connexion Mikee
+              </button>
+            </>
+          )}
+
           <hr className="divider" style={{ margin: '20px 0' }} />
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, color: 'var(--text-muted)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>
             <span>
               Pas encore membre ?{' '}
               <Link href="/inscription" style={{ fontWeight: 700, color: 'var(--primary)' }}>
                 Créer un compte
               </Link>
             </span>
-            <Link href="/mot-de-passe-oublie" style={{ color: 'var(--text-muted)', textDecoration: 'underline', fontSize: 13 }}>
+            <Link href="/mot-de-passe-oublie" style={{ color: 'var(--text-muted)', textDecoration: 'underline' }}>
               Mot de passe oublié ?
             </Link>
           </div>

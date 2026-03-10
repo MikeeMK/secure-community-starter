@@ -6,10 +6,23 @@ import { CaptchaService } from './captcha.service';
 import { EmailService } from './email.service';
 import { LoginAttemptService } from './login-attempt.service';
 import { safeUserSelect, SafeUser } from './user.select';
+import { TokenService } from '../tokens/token.service';
 
 // Lazy-load argon2 so the app still starts if native build is missing during development.
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const argon2: typeof import('argon2') = require('argon2');
+
+const DISPOSABLE_DOMAINS = new Set([
+  'yopmail.com', 'mailinator.com', 'guerrillamail.com', 'guerrillamail.net',
+  'guerrillamail.org', 'guerrillamail.biz', 'guerrillamail.de', 'guerrillamail.info',
+  'sharklasers.com', 'guerrillamailblock.com', 'grr.la', 'guerrillamail.it',
+  'spam4.me', 'trashmail.com', 'trashmail.me', 'trashmail.net', 'trashmail.at',
+  'trashmail.io', 'trashmail.org', 'dispostable.com', 'temp-mail.org', 'tempmail.com',
+  'throwam.com', 'throwam.net', 'maildrop.cc', 'fakeinbox.com', 'mailnull.com',
+  'spamgourmet.com', 'spamgourmet.net', 'spamgourmet.org', '10minutemail.com',
+  'tempr.email', 'discard.email', 'tempail.com', 'getairmail.com', 'filzmail.com',
+  'mailnew.com', 'harakirimail.com', 'mailexpire.com',
+]);
 
 // ---------------------------------------------------------------------------
 // Legacy PBKDF2 verify — for accounts created before the argon2id migration.
@@ -46,6 +59,7 @@ export class AuthService {
     private readonly captcha: CaptchaService,
     private readonly loginAttempts: LoginAttemptService,
     private readonly email: EmailService,
+    private readonly tokens: TokenService,
   ) {}
 
   /** Returns a devUrl field only in non-production environments without SMTP configured. */
@@ -62,6 +76,7 @@ export class AuthService {
         email: user.email,
         displayName: user.displayName,
         trustLevel: user.trustLevel,
+        isAdultVerified: user.isAdultVerified,
       },
       { expiresIn: this.jwtExpiry },
     );
@@ -83,6 +98,12 @@ export class AuthService {
   ) {
     // Verify Turnstile captcha (skipped automatically in dev when no secret is configured)
     await this.captcha.verify(turnstileToken, remoteIp);
+
+    // Block disposable/temporary email providers
+    const domain = email.split('@')[1]?.toLowerCase();
+    if (domain && DISPOSABLE_DOMAINS.has(domain)) {
+      throw new BadRequestException('Les adresses e-mail temporaires ne sont pas acceptées.');
+    }
 
     const exists = await this.prisma.user.findUnique({ where: { email }, select: { id: true } });
     if (exists) {
@@ -123,6 +144,7 @@ export class AuthService {
       data: { emailVerifiedAt: new Date() },
     });
     await this.prisma.emailVerificationToken.delete({ where: { id: record.id } });
+    this.tokens.awardMilestone(record.userId, 'email_verified').catch(() => {});
     return { success: true };
   }
 
@@ -181,6 +203,22 @@ export class AuthService {
     });
     await this.prisma.passwordResetToken.delete({ where: { id: record.id } });
     return { success: true };
+  }
+
+  // -------------------------------------------------------------------------
+  // devLogin — dev-only, no password check
+  // -------------------------------------------------------------------------
+  async devLogin(email: string) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new UnauthorizedException('Not available in production');
+    }
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      select: safeUserSelect,
+    });
+    if (!user) throw new NotFoundException('Utilisateur introuvable');
+    const accessToken = await this.buildToken(user);
+    return { user, accessToken };
   }
 
   // -------------------------------------------------------------------------

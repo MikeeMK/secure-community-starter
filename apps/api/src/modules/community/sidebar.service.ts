@@ -8,16 +8,24 @@ export class SidebarService {
   async getSidebar() {
     const onlineThreshold = new Date(Date.now() - 5 * 60 * 1000);
 
-    const [onlineUsers, newMembers, recentTopics, recentPosts, recentRegistrations] =
+    const [onlineUsers, offlineUsers, newMembers, recentTopics, recentPosts, recentRegistrations] =
       await Promise.all([
         this.prisma.user.findMany({
           where: { lastActiveAt: { gte: onlineThreshold } },
-          select: { id: true, displayName: true, lastActiveAt: true },
+          select: { id: true, displayName: true, lastActiveAt: true, trustLevel: true },
           orderBy: { lastActiveAt: 'desc' },
           take: 20,
         }),
         this.prisma.user.findMany({
-          select: { id: true, displayName: true, createdAt: true },
+          where: {
+            OR: [{ lastActiveAt: { lt: onlineThreshold } }, { lastActiveAt: null }],
+          },
+          select: { id: true, displayName: true, lastActiveAt: true, trustLevel: true },
+          orderBy: { lastActiveAt: 'desc' },
+          take: 20,
+        }),
+        this.prisma.user.findMany({
+          select: { id: true, displayName: true, createdAt: true, trustLevel: true },
           orderBy: { createdAt: 'desc' },
           take: 5,
         }),
@@ -26,7 +34,7 @@ export class SidebarService {
             id: true,
             title: true,
             createdAt: true,
-            author: { select: { id: true, displayName: true } },
+            author: { select: { id: true, displayName: true, trustLevel: true } },
           },
           orderBy: { createdAt: 'desc' },
           take: 5,
@@ -35,14 +43,14 @@ export class SidebarService {
           select: {
             id: true,
             createdAt: true,
-            author: { select: { id: true, displayName: true } },
+            author: { select: { id: true, displayName: true, trustLevel: true } },
             topic: { select: { id: true, title: true } },
           },
           orderBy: { createdAt: 'desc' },
           take: 5,
         }),
         this.prisma.user.findMany({
-          select: { id: true, displayName: true, createdAt: true },
+          select: { id: true, displayName: true, createdAt: true, trustLevel: true },
           orderBy: { createdAt: 'desc' },
           take: 5,
         }),
@@ -54,6 +62,7 @@ export class SidebarService {
         id: `topic-${t.id}`,
         actorId: t.author.id,
         actor: t.author.displayName,
+        actorTrust: t.author.trustLevel,
         label: t.title,
         at: t.createdAt,
       })),
@@ -62,6 +71,7 @@ export class SidebarService {
         id: `post-${p.id}`,
         actorId: p.author.id,
         actor: p.author.displayName,
+        actorTrust: p.author.trustLevel,
         label: p.topic.title,
         at: p.createdAt,
       })),
@@ -70,6 +80,7 @@ export class SidebarService {
         id: `reg-${u.id}`,
         actorId: u.id,
         actor: u.displayName,
+        actorTrust: u.trustLevel,
         label: null,
         at: u.createdAt,
       })),
@@ -77,6 +88,6 @@ export class SidebarService {
       .sort((a, b) => b.at.getTime() - a.at.getTime())
       .slice(0, 5);
 
-    return { onlineUsers, newMembers, activity };
+    return { onlineUsers, offlineUsers, newMembers, activity };
   }
 }

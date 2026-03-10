@@ -1,0 +1,139 @@
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { TokenService } from '../tokens/token.service';
+import {
+  normalizeLookingForValues,
+  normalizeProfileRecord,
+  PROFILE_BIO_MAX_LENGTH,
+} from './profile.utils';
+
+const PROFILE_SELECT = {
+  id: true,
+  age: true,
+  city: true,
+  gender: true,
+  orientation: true,
+  relationshipStatus: true,
+  lookingFor: true,
+  interactionType: true,
+  ageMin: true,
+  ageMax: true,
+  interests: true,
+  bio: true,
+  updatedAt: true,
+};
+
+function calcCompletion(emailVerifiedAt: Date | null, p: Record<string, unknown> | null): number {
+  const checks = [
+    !!emailVerifiedAt,
+    !!(p?.age),
+    !!(p?.city),
+    !!(p?.gender),
+    !!(p?.orientation),
+    !!(p?.bio && (p.bio as string).length > 10),
+    ((p?.interests as string[])?.length ?? 0) >= 3,
+    ((p?.lookingFor as string[])?.length ?? 0) > 0,
+  ];
+  const weights = [20, 10, 10, 10, 10, 15, 15, 10];
+  return checks.reduce((sum, c, i) => sum + (c ? weights[i] : 0), 0);
+}
+
+@Injectable()
+export class ProfileService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tokens: TokenService,
+  ) {}
+
+  async getMyProfile(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        displayName: true,
+        email: true,
+        trustLevel: true,
+        emailVerifiedAt: true,
+        createdAt: true,
+        profile: { select: PROFILE_SELECT },
+      },
+    });
+    if (!user) return null;
+    const completion = calcCompletion(user.emailVerifiedAt, user.profile as Record<string, unknown> | null);
+    return {
+      ...user,
+      profile: normalizeProfileRecord(user.profile),
+      completion,
+    };
+  }
+
+  async upsertProfile(
+    userId: string,
+    data: {
+      age?: number;
+      city?: string;
+      gender?: string;
+      orientation?: string;
+      relationshipStatus?: string;
+      lookingFor?: string[];
+      interactionType?: string[];
+      ageMin?: number;
+      ageMax?: number;
+      interests?: string[];
+      bio?: string;
+    },
+  ) {
+    const existing = await this.prisma.userProfile.findUnique({
+      where: { userId },
+      select: { bio: true },
+    });
+
+    if (
+      typeof data.bio === 'string' &&
+      data.bio.length > PROFILE_BIO_MAX_LENGTH &&
+      data.bio !== existing?.bio
+    ) {
+      throw new BadRequestException(
+        `La biographie ne peut pas dépasser ${PROFILE_BIO_MAX_LENGTH} caractères.`,
+      );
+    }
+
+    const payload = {
+      ...data,
+      ...(data.lookingFor ? { lookingFor: normalizeLookingForValues(data.lookingFor) } : {}),
+    };
+
+    const profile = await this.prisma.userProfile.upsert({
+      where: { userId },
+      create: { userId, ...payload },
+      update: payload,
+      select: PROFILE_SELECT,
+    });
+
+    // Check milestone awards after save
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { emailVerifiedAt: true },
+    });
+    const pct = calcCompletion(user?.emailVerifiedAt ?? null, profile as Record<string, unknown>);
+    if (pct >= 60) this.tokens.awardMilestone(userId, 'profile_60').catch(() => {});
+    if (pct >= 100) this.tokens.awardMilestone(userId, 'profile_100').catch(() => {});
+
+    return normalizeProfileRecord(profile);
+  }
+
+  async listMembers(excludeUserId: string) {
+    return this.prisma.user.findMany({
+      where: { id: { not: excludeUserId } },
+      orderBy: { lastActiveAt: 'desc' },
+      take: 6,
+      select: {
+        id: true,
+        displayName: true,
+        trustLevel: true,
+        lastActiveAt: true,
+        profile: { select: { city: true, age: true, interests: true } },
+      },
+    });
+  }
+}

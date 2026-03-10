@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ApiFetchError, apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { TurnstileWidget } from '../components/TurnstileWidget';
+import { triggerEmailConfirmation } from '../lib/supabaseClient';
 
 type RegisterResult = {
   user: { id: string; displayName: string; email: string; trustLevel: string };
@@ -24,6 +25,7 @@ export default function PageInscription() {
   const [motDePasse, setMotDePasse] = React.useState('');
   const [chargement, setChargement] = React.useState(false);
   const [erreur, setErreur] = React.useState<string | null>(null);
+  const [info, setInfo] = React.useState<string | null>(null);
   const [captchaToken, setCaptchaToken] = React.useState<string | null>(null);
   const [captchaReset, setCaptchaReset] = React.useState(0);
   const [devUrl, setDevUrl] = React.useState<string | null>(null);
@@ -36,6 +38,7 @@ export default function PageInscription() {
     }
     setChargement(true);
     setErreur(null);
+    setInfo(null);
     try {
       const result = await apiFetch<RegisterResult>('/auth/register', {
         method: 'POST',
@@ -52,7 +55,15 @@ export default function PageInscription() {
       if (result.devUrl) {
         setDevUrl(result.devUrl);
       } else {
-        router.push('/forum');
+        router.push('/dashboard');
+      }
+
+      // Déclenche l'e-mail de confirmation Supabase en parallèle
+      const supa = await triggerEmailConfirmation(email, motDePasse);
+      if (supa.ok) {
+        setInfo(supa.message);
+      } else if (!supa.skipped) {
+        setInfo(`Compte créé, mais l'envoi de l'e-mail a échoué : ${supa.message}`);
       }
     } catch (e) {
       if (e instanceof ApiFetchError && e.captchaRequired) {
@@ -69,9 +80,6 @@ export default function PageInscription() {
     <div style={{ maxWidth: 440, margin: '56px auto' }}>
       {/* En-tête */}
       <div style={{ textAlign: 'center', marginBottom: 32 }}>
-        <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none', marginBottom: 20 }}>
-          <img src="/logo.png" alt="Velentra" style={{ height: 44, width: 'auto' }} />
-        </Link>
         <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 6, letterSpacing: '-0.02em' }}>Créer un compte</h1>
         <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Rejoignez la communauté gratuitement</p>
       </div>
@@ -109,9 +117,9 @@ export default function PageInscription() {
               minLength={2}
               maxLength={32}
               placeholder="Votre pseudo"
-              autoComplete="username"
+              autoComplete="nickname"
             />
-            <span className="form-hint">Entre 2 et 32 caractères</span>
+            <span className="form-hint">Ce nom sera visible par les autres membres.</span>
           </div>
 
           <div className="form-group">
@@ -155,6 +163,7 @@ export default function PageInscription() {
           )}
 
           {erreur && <div className="error-text">{erreur}</div>}
+          {info && <div className="success-text">{info}</div>}
 
           <button
             type="submit"

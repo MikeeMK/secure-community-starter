@@ -9,10 +9,12 @@ import { EmailService } from './email.service';
 import { LoginAttemptService } from './login-attempt.service';
 import { JwtStrategy } from './jwt.strategy';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import { TokenModule } from '../tokens/token.module';
 
 @Module({
   imports: [
     PrismaModule,
+    TokenModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       useFactory: () => ({

@@ -1,16 +1,18 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import { apiFetch } from '../lib/api';
+import { UserProfileTrigger } from './UserProfileTrigger';
+import { PlanPill, TrustBadge } from './Badge';
 
-type OnlineUser = { id: string; displayName: string; lastActiveAt: string };
-type NewMember  = { id: string; displayName: string; createdAt: string };
+type OnlineUser = { id: string; displayName: string; lastActiveAt: string; trustLevel?: string };
+type NewMember  = { id: string; displayName: string; createdAt: string; trustLevel?: string };
 type ActivityItem = {
   type: 'topic' | 'post' | 'register';
   id: string;
   actorId: string;
   actor: string;
+  actorTrust?: string;
   label: string | null;
   at: string;
 };
@@ -19,6 +21,14 @@ type SidebarData = {
   newMembers: NewMember[];
   activity: ActivityItem[];
 };
+
+const isStaff = (t?: string) => t === 'moderator' || t === 'super_admin';
+
+function UserBadges({ trustLevel }: { trustLevel?: string }) {
+  if (!trustLevel) return null;
+  if (isStaff(trustLevel)) return <TrustBadge level={trustLevel as any} />;
+  return <PlanPill plan={trustLevel} />;
+}
 
 function initials(name: string) {
   return name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
@@ -114,7 +124,6 @@ export function HomeSidebar() {
         <SectionTitle>
           <span className="sb-online-pulse" />
           Membres en ligne
-          <span className="sb-count">{online.length}</span>
         </SectionTitle>
 
         {online.length === 0 ? (
@@ -124,11 +133,24 @@ export function HomeSidebar() {
             {online.map((u) => (
               <li key={u.id} className="sb-row">
                 <div className="sb-avatar-wrap">
-                  <Avatar name={u.displayName} size={40} />
+                  <Avatar name={u.displayName} size={46} />
                   <span className="sb-online-dot" />
                 </div>
                 <div className="sb-info">
-                  <span className="sb-name">{u.displayName}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <UserProfileTrigger
+                      userId={u.id}
+                      displayName={u.displayName}
+                      style={{ color: 'var(--text)', fontSize: 15, fontWeight: 600 }}
+                    >
+                      <span className="sb-name">{u.displayName}</span>
+                    </UserProfileTrigger>
+                    {u.trustLevel && (
+                      u.trustLevel === 'moderator' || u.trustLevel === 'super_admin'
+                        ? <PlanPill plan={u.trustLevel} />
+                        : <PlanPill plan={u.trustLevel} />
+                    )}
+                  </div>
                   <span className="sb-sub">En ligne</span>
                 </div>
               </li>
@@ -143,7 +165,6 @@ export function HomeSidebar() {
       <section className="sb-section">
         <SectionTitle>
           Nouveaux membres
-          <span className="sb-count">{members.length}</span>
         </SectionTitle>
 
         {members.length === 0 ? (
@@ -151,17 +172,21 @@ export function HomeSidebar() {
         ) : (
           <ul className="sb-list">
             {members.map((m) => (
-              <li key={m.id} className="sb-row sb-row-between">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                  <Avatar name={m.displayName} size={40} />
-                  <div className="sb-info">
-                    <span className="sb-name">{m.displayName}</span>
-                    <span className="sb-sub">{timeAgo(m.createdAt)}</span>
+              <li key={m.id} className="sb-row">
+                <Avatar name={m.displayName} size={46} />
+                <div className="sb-info">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <UserProfileTrigger
+                      userId={m.id}
+                      displayName={m.displayName}
+                      style={{ color: 'var(--text)', fontSize: 15, fontWeight: 600 }}
+                    >
+                      <span className="sb-name">{m.displayName}</span>
+                    </UserProfileTrigger>
+                    <UserBadges trustLevel={m.trustLevel} />
                   </div>
+                  <span className="sb-sub">{timeAgo(m.createdAt)}</span>
                 </div>
-                <Link href="/forum" className="sb-btn-discuter">
-                  ♥ Discuter
-                </Link>
               </li>
             ))}
           </ul>
@@ -174,7 +199,6 @@ export function HomeSidebar() {
       <section className="sb-section">
         <SectionTitle>
           Activité récente
-          <span className="sb-count">{activity.length}</span>
         </SectionTitle>
 
         {activity.length === 0 ? (
@@ -184,11 +208,18 @@ export function HomeSidebar() {
             {activity.map((item) => (
               <li key={item.id} className="sb-row">
                 <div className="sb-avatar-wrap">
-                  <Avatar name={item.actor} size={36} />
+                  <Avatar name={item.actor} size={46} />
                   <span className="sb-activity-icon">{activityIcon(item.type)}</span>
                 </div>
                 <div className="sb-info">
-                  <span className="sb-name">{item.actor}</span>
+                  <UserProfileTrigger
+                    userId={item.actorId}
+                    displayName={item.actor}
+                    style={{ color: 'var(--text)', fontSize: 15, fontWeight: 600 }}
+                  >
+                    <span className="sb-name">{item.actor}</span>
+                  </UserProfileTrigger>
+                  <UserBadges trustLevel={item.actorTrust} />
                   <span className="sb-sub">{activityText(item)}</span>
                   <span className="sb-time">{timeAgo(item.at)}</span>
                 </div>

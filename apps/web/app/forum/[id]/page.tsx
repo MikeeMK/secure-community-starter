@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Avatar } from '../../components/Avatar';
 import { TrustBadge } from '../../components/Badge';
+import { UserProfileTrigger } from '../../components/UserProfileTrigger';
+import { RichTextarea } from '../../components/RichTextarea';
 import { apiFetch } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 
@@ -12,7 +14,7 @@ type Message = {
   id: string;
   body: string;
   createdAt: string;
-  author: { id: string; displayName: string };
+  author: { id: string; displayName: string; trustLevel?: string };
 };
 
 type Sujet = {
@@ -20,6 +22,7 @@ type Sujet = {
   title: string;
   body: string;
   createdAt: string;
+  closed?: boolean;
   author: { id: string; displayName: string; trustLevel: string };
   group: { id: string; name: string } | null;
   posts: Message[];
@@ -35,6 +38,22 @@ export default function PageSujet() {
   const { id } = useParams<{ id: string }>();
   const [sujet, setSujet] = React.useState<Sujet | null>(null);
   const [erreur, setErreur] = React.useState<string | null>(null);
+  const [actionsOuvertes, setActionsOuvertes] = React.useState<string | null>(null);
+  const { utilisateur } = useAuth();
+
+  const estStaff = utilisateur ? ['moderator', 'super_admin'].includes(utilisateur.trustLevel) : false;
+  const estAuteur = utilisateur && sujet ? utilisateur.id === sujet.author.id : false;
+
+  const renderBadges = (trust?: string) => {
+    if (!trust) return null;
+    const isStaff = trust === 'moderator' || trust === 'super_admin';
+    return (
+      <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+        {isStaff && <TrustBadge level={trust} />}
+        {!isStaff && <PlanPill plan={trust} />}
+      </span>
+    );
+  };
 
   React.useEffect(() => {
     if (!id) return;
@@ -42,6 +61,32 @@ export default function PageSujet() {
       .then(setSujet)
       .catch((e) => setErreur(String(e)));
   }, [id]);
+
+  async function modifierMessage(message: Message) {
+    const nouveauCorps = prompt('Modifier le message', message.body);
+    if (!nouveauCorps || !nouveauCorps.trim()) return;
+    try {
+      const maj = await apiFetch<Message>(`/community/forum/posts/${message.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ body: nouveauCorps }),
+      });
+      setSujet((prev) => prev ? { ...prev, posts: prev.posts.map((p) => (p.id === message.id ? maj : p)) } : prev);
+      setActionsOuvertes(null);
+    } catch (e) {
+      setErreur(String(e));
+    }
+  }
+
+  async function supprimerMessage(messageId: string) {
+    if (!confirm('Supprimer ce message ?')) return;
+    try {
+      await apiFetch(`/community/forum/posts/${messageId}`, { method: 'DELETE' });
+      setSujet((prev) => prev ? { ...prev, posts: prev.posts.filter((p) => p.id !== messageId) } : prev);
+      setActionsOuvertes(null);
+    } catch (e) {
+      setErreur(String(e));
+    }
+  }
 
   if (erreur) return (
     <div>
@@ -68,29 +113,52 @@ export default function PageSujet() {
         </Link>
 
         <div className="card">
-          <div className="row-between" style={{ marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
-            <h1 style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.3, letterSpacing: '-0.02em', flex: 1 }}>
-              {sujet.title}
-            </h1>
-            {sujet.group && <span className="tag tag-primary">{sujet.group.name}</span>}
-          </div>
-
-          <div className="row" style={{ marginBottom: 20, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
+          <div className="row" style={{ marginBottom: 16, gap: 12, alignItems: 'flex-start' }}>
             <Avatar name={sujet.author.displayName} size="md" />
-            <div>
-              <Link href={`/profil/${sujet.author.id}`} style={{ fontWeight: 700, color: 'var(--text)', fontSize: 14 }}>
-                {sujet.author.displayName}
-              </Link>
-              <div className="row" style={{ gap: 8, marginTop: 3 }}>
-                <TrustBadge level={sujet.author.trustLevel as 'new' | 'normal' | 'trusted' | 'restricted'} />
+            <div style={{ flex: 1 }}>
+              <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 4 }}>
+                <UserProfileTrigger
+                  userId={sujet.author.id}
+                  displayName={sujet.author.displayName}
+                  style={{ fontWeight: 700, color: 'var(--text)', fontSize: 14 }}
+                >
+                  <span>{sujet.author.displayName}</span>
+                </UserProfileTrigger>
+                {renderBadges(sujet.author.trustLevel)}
                 <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{formaterDate(sujet.createdAt)}</span>
+                {sujet.group && <span className="tag tag-primary">{sujet.group.name}</span>}
+                {sujet.closed && <span className="tag tag-muted">Fermé</span>}
               </div>
+              <h1 style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.3, letterSpacing: '-0.02em' }}>
+                {sujet.title}
+              </h1>
             </div>
+            {(estStaff || estAuteur) && (
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={async () => {
+                  try {
+                    const next = !sujet.closed;
+                    const maj = await apiFetch<Sujet>(`/community/forum/topics/${sujet.id}`, {
+                      method: 'PATCH',
+                      body: JSON.stringify({ closed: next }),
+                    });
+                    setSujet((prev) => prev ? { ...prev, closed: maj.closed } : prev);
+                  } catch (e) {
+                    setErreur(String(e));
+                  }
+                }}
+              >
+                {sujet.closed ? 'Réouvrir' : 'Fermer'}
+              </button>
+            )}
           </div>
 
-          <p style={{ color: 'var(--text)', fontSize: 15, lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>
-            {sujet.body}
-          </p>
+          <div style={{ paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+            <p style={{ color: 'var(--text)', fontSize: 15, lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>
+              {sujet.body}
+            </p>
+          </div>
 
           <div style={{ marginTop: 20 }}>
             <BoutonJaime />
@@ -111,10 +179,57 @@ export default function PageSujet() {
                 <Avatar name={message.author.displayName} size="md" />
                 <div style={{ flex: 1 }}>
                   <div className="row" style={{ marginBottom: 8 }}>
-                    <Link href={`/profil/${message.author.id}`} style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>
-                      {message.author.displayName}
-                    </Link>
+                    <UserProfileTrigger
+                      userId={message.author.id}
+                      displayName={message.author.displayName}
+                      style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}
+                    >
+                      <span>{message.author.displayName}</span>
+                    </UserProfileTrigger>
+                    {renderBadges(message.author.trustLevel)}
                     <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{formaterDate(message.createdAt)}</span>
+                    {estStaff && (
+                      <div style={{ position: 'relative', marginLeft: 'auto' }}>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-xs"
+                          onClick={() => setActionsOuvertes((prev) => (prev === message.id ? null : message.id))}
+                        >
+                          ⋮
+                        </button>
+                        {actionsOuvertes === message.id && (
+                          <div
+                            className="card"
+                            style={{
+                              position: 'absolute',
+                              right: 0,
+                              top: 28,
+                              padding: 8,
+                              width: 140,
+                              zIndex: 10,
+                              boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
+                            }}
+                          >
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm"
+                              style={{ width: '100%', justifyContent: 'flex-start' }}
+                              onClick={() => modifierMessage(message)}
+                            >
+                              Modifier
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm"
+                              style={{ width: '100%', justifyContent: 'flex-start', color: 'var(--danger, #c0392b)' }}
+                              onClick={() => supprimerMessage(message.id)}
+                            >
+                              Supprimer
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <p className="post-body">{message.body}</p>
                   <div style={{ marginTop: 10 }}>
@@ -126,10 +241,16 @@ export default function PageSujet() {
           </div>
         )}
 
-        <FormulaireReponse
-          sujetId={id}
-          onPublie={(msg) => setSujet((prev) => prev ? { ...prev, posts: [...prev.posts, msg] } : prev)}
-        />
+        {sujet.closed && !estStaff && !estAuteur ? (
+          <div className="card card-accent">
+            <p style={{ margin: 0, fontSize: 14 }}>Ce sujet est fermé. Vous ne pouvez plus répondre.</p>
+          </div>
+        ) : (
+          <FormulaireReponse
+            sujetId={id}
+            onPublie={(msg) => setSujet((prev) => prev ? { ...prev, posts: [...prev.posts, msg] } : prev)}
+          />
+        )}
       </div>
     </div>
   );
@@ -184,13 +305,11 @@ function FormulaireReponse({ sujetId, onPublie }: { sujetId: string; onPublie: (
       </h3>
       <form onSubmit={handleSubmit} className="stack">
         <div className="form-group">
-          <textarea
-            className="form-textarea"
+          <RichTextarea
             value={corps}
-            onChange={(e) => setCorps(e.target.value)}
-            required
-            rows={4}
-            placeholder="Rédigez votre réponse&hellip;"
+            onChange={setCorps}
+            rows={5}
+            placeholder="Rédigez votre réponse…"
           />
         </div>
         {erreur && <div className="error-text">{erreur}</div>}

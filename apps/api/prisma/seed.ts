@@ -9,7 +9,7 @@ async function main() {
     create: {
       email: 'alice@example.com',
       displayName: 'Alice',
-      trustLevel: 'trusted',
+      trustLevel: 'member',
       passwordHash: 'seed:seed',
     },
   });
