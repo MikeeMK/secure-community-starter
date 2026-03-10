@@ -145,7 +145,7 @@ export default function PageProfilUtilisateur() {
             <div style={{ marginTop: 18, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
               <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 10 }}>Bio</h2>
               {profil.profile?.bio ? (
-                <ExpandableBio text={profil.profile.bio} maxLines={5} />
+                <ExpandableBio text={profil.profile.bio} lineClamp={5} />
               ) : (
                 <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Aucune bio pour le moment.</p>
               )}
