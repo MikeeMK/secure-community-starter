@@ -5,7 +5,12 @@ import Link from 'next/link';
 import { apiFetch } from '../lib/api';
 
 type Notif = { id: string; message: string; link: string | null; read: boolean; createdAt: string };
-type Msg = { id: string; other: { id: string; displayName: string }; lastMsg?: { content: string; createdAt: string; senderId: string; read: boolean } | null; unread: number };
+type Msg = {
+  id: string;
+  other: { id: string; displayName: string };
+  lastMsg?: { content: string; createdAt: string; senderId: string; read: boolean } | null;
+  unread: number;
+};
 
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
@@ -165,11 +170,17 @@ export default function MessageriePage() {
                     style={{ marginTop: 6 }}
                   />
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700 }}>{m.from}</div>
-                    <div style={{ color: 'var(--text-muted)', fontSize: 13, lineHeight: 1.5 }}>{m.preview}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>{timeAgo(m.createdAt)}</div>
+                    <div style={{ fontWeight: 700 }}>{m.other.displayName}</div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: 13, lineHeight: 1.5 }}>
+                      {m.lastMsg?.content ?? 'Aucun message pour le moment.'}
+                    </div>
+                    {m.lastMsg?.createdAt && (
+                      <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>
+                        {timeAgo(m.lastMsg.createdAt)}
+                      </div>
+                    )}
                   </div>
-                  {m.unread && <span className="tag tag-primary" style={{ fontSize: 11 }}>Non lu</span>}
+                  {m.unread > 0 && <span className="tag tag-primary" style={{ fontSize: 11 }}>Non lu</span>}
                 </div>
               ))}
             </div>
