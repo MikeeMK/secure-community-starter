@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Avatar } from '../../components/Avatar';
-import { TrustBadge } from '../../components/Badge';
+import { TrustBadge, PlanPill } from '../../components/Badge';
 import { UserProfileTrigger } from '../../components/UserProfileTrigger';
 import { RichTextarea } from '../../components/RichTextarea';
 import { apiFetch } from '../../lib/api';
