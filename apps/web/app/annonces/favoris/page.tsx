@@ -91,7 +91,7 @@ export default function AnnoncesFavorisPage() {
                   {a.region && <span className="tag tag-muted">{a.region}</span>}
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <UserProfileTrigger userId={a.author.id} displayName={a.author.displayName} trustLevel={a.author.trustLevel} />
+                  <UserProfileTrigger userId={a.author.id} displayName={a.author.displayName} />
                   <span>· {timeAgo(a.createdAt)}</span>
                 </div>
               </div>
