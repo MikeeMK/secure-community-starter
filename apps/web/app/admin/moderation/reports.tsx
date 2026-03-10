@@ -36,12 +36,15 @@ export default function ReportsPage() {
 
   async function updateReport(id: string, status: Report['status'], rewardTokens = 0) {
     const reason = prompt('Raison (optionnel)', '');
-    await apiFetch(`/moderation/reports/${id}`, {
-      method: 'POST',
-      body: JSON.stringify({ status, resolutionReason: reason || undefined, rewardTokens }),
-    }).then((res: Report) => {
+    try {
+      const res = await apiFetch<Report>(`/moderation/reports/${id}`, {
+        method: 'POST',
+        body: JSON.stringify({ status, resolutionReason: reason || undefined, rewardTokens }),
+      });
       setReports((prev) => prev.map((r) => (r.id === id ? { ...r, ...res } : r)));
-    }).catch(() => alert('Mise à jour impossible'));
+    } catch {
+      alert('Mise à jour impossible');
+    }
   }
 
   if (loading) return <p className="loading-text">Chargement…</p>;
