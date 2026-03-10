@@ -72,7 +72,6 @@ export function FavoritesReceivedCard() {
               <UserProfileTrigger
                 userId={fav.user.id}
                 displayName={fav.user.displayName}
-                trustLevel={fav.user.trustLevel}
                 style={{ fontWeight: 600, color: 'var(--text)', textDecoration: 'none' }}
               />
               <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>
