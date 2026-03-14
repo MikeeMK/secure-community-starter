@@ -27,11 +27,19 @@ function getSupabaseConfig() {
 }
 
 function getApiBaseUrl() {
-  return (
+  const configured =
     process.env.API_BASE_URL ??
     process.env.NEXT_PUBLIC_API_BASE_URL ??
-    `http://localhost:${process.env.API_PORT ?? 4000}`
-  );
+    `http://localhost:${process.env.API_PORT ?? 4000}`;
+
+  if (process.env.NODE_ENV === 'production') {
+    const normalized = configured.trim().toLowerCase();
+    if (!normalized || normalized.includes('localhost') || normalized.includes('127.0.0.1')) {
+      throw new Error('API_BASE_URL doit pointer vers votre backend public en production.');
+    }
+  }
+
+  return configured;
 }
 
 function clearAuthCookie(response: NextResponse) {
@@ -134,12 +142,26 @@ async function resolveOAuthPayload(providerAccessToken: string) {
 }
 
 async function proxyAuthRequest(endpoint: string, body: string) {
-  const upstream = await fetch(`${getApiBaseUrl()}${endpoint}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body,
-    cache: 'no-store',
-  });
+  let upstream: Response;
+  try {
+    upstream = await fetch(`${getApiBaseUrl()}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+      cache: 'no-store',
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        message:
+          error instanceof Error &&
+          error.message.includes('API_BASE_URL')
+            ? error.message
+            : 'Backend API inaccessible. Vérifiez API_BASE_URL et le déploiement de l’API.',
+      },
+      { status: 503 },
+    );
+  }
 
   const text = await upstream.text();
   const contentType = upstream.headers.get('content-type') ?? 'application/json';

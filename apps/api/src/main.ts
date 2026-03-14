@@ -56,10 +56,10 @@ async function bootstrap() {
     credentials: true,
   });
 
-  const port = Number(process.env.API_PORT ?? 4000);
-  await app.listen(port);
+  const port = Number(process.env.PORT ?? process.env.API_PORT ?? 4000);
+  await app.listen(port, '0.0.0.0');
   // eslint-disable-next-line no-console
-  console.log(`API listening on http://localhost:${port}`);
+  console.log(`API listening on port ${port}`);
 }
 
 bootstrap();

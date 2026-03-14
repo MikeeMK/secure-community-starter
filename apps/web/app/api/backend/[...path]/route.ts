@@ -5,15 +5,37 @@ export const runtime = 'nodejs';
 const AUTH_COOKIE_NAME = 'community_auth';
 
 function getApiBaseUrl() {
-  return (
+  const configured =
     process.env.API_BASE_URL ??
     process.env.NEXT_PUBLIC_API_BASE_URL ??
-    `http://localhost:${process.env.API_PORT ?? 4000}`
-  );
+    `http://localhost:${process.env.API_PORT ?? 4000}`;
+
+  if (process.env.NODE_ENV === 'production') {
+    const normalized = configured.trim().toLowerCase();
+    if (!normalized || normalized.includes('localhost') || normalized.includes('127.0.0.1')) {
+      throw new Error('API_BASE_URL doit pointer vers votre backend public en production.');
+    }
+  }
+
+  return configured;
 }
 
 async function proxy(request: NextRequest, path: string[]) {
-  const url = new URL(`${getApiBaseUrl()}/${path.join('/')}`);
+  let url: URL;
+  try {
+    url = new URL(`${getApiBaseUrl()}/${path.join('/')}`);
+  } catch (error) {
+    return NextResponse.json(
+      {
+        message:
+          error instanceof Error &&
+          error.message.includes('API_BASE_URL')
+            ? error.message
+            : 'Backend API inaccessible. Vérifiez API_BASE_URL et le déploiement de l’API.',
+      },
+      { status: 503 },
+    );
+  }
   url.search = request.nextUrl.search;
 
   const headers = new Headers();
@@ -32,12 +54,22 @@ async function proxy(request: NextRequest, path: string[]) {
       ? undefined
       : await request.arrayBuffer();
 
-  const upstream = await fetch(url, {
-    method: request.method,
-    headers,
-    body: body && body.byteLength > 0 ? body : undefined,
-    cache: 'no-store',
-  });
+  let upstream: Response;
+  try {
+    upstream = await fetch(url, {
+      method: request.method,
+      headers,
+      body: body && body.byteLength > 0 ? body : undefined,
+      cache: 'no-store',
+    });
+  } catch {
+    return NextResponse.json(
+      {
+        message: 'Backend API inaccessible. Vérifiez API_BASE_URL et le déploiement de l’API.',
+      },
+      { status: 503 },
+    );
+  }
 
   const responseHeaders = new Headers();
   const upstreamType = upstream.headers.get('content-type');
