@@ -117,144 +117,135 @@ export default function ConnexionClient() {
   }
 
   return (
-    <div style={{ maxWidth: 420, margin: '56px auto', padding: '0 24px' }}>
-      <div>
-        <div style={{ textAlign: 'center', marginBottom: 36 }}>
-          <h1 style={{ fontSize: 26, fontWeight: 900, marginBottom: 8, letterSpacing: '-0.03em' }}>
-            Bon retour
-          </h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: 15 }}>
-            Connectez-vous pour continuer
-          </p>
+    <div style={{ maxWidth: 440, margin: '56px auto' }}>
+      <div style={{ textAlign: 'center', marginBottom: 32 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 6, letterSpacing: '-0.02em' }}>
+          Bon retour
+        </h1>
+        <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
+          Connectez-vous pour continuer
+        </p>
+      </div>
+
+      <div className="card card-lg">
+        <OAuthButtons
+          disabled={chargement}
+          isConfigured={isSupabaseConfigured}
+          onSelect={handleOAuthLogin}
+        />
+
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            marginBottom: 18,
+            color: 'var(--text-dim)',
+            fontSize: 12,
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+          }}
+        >
+          <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+          <span>ou avec votre e-mail</span>
+          <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
         </div>
 
-        <div className="card card-lg" style={{ background: 'rgba(17,17,20,0.9)', backdropFilter: 'blur(12px)', border: '1px solid var(--border)' }}>
-          <OAuthButtons
-            disabled={chargement}
-            isConfigured={isSupabaseConfigured}
-            onSelect={handleOAuthLogin}
-          />
-
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              marginBottom: 18,
-              color: 'var(--text-dim)',
-              fontSize: 12,
-              textTransform: 'uppercase',
-              letterSpacing: '0.08em',
-            }}
-          >
-            <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-            <span>ou avec votre e-mail</span>
-            <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+        <form onSubmit={handleSubmit} className="stack">
+          <div className="form-group">
+            <label className="form-label" htmlFor="email">Adresse e-mail</label>
+            <input
+              id="email"
+              type="email"
+              className="form-input"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              placeholder="vous@exemple.com"
+              autoComplete="email"
+              autoFocus
+            />
           </div>
 
-          <form onSubmit={handleSubmit} className="stack">
+          <div className="form-group">
+            <label className="form-label" htmlFor="password">Mot de passe</label>
+            <input
+              id="password"
+              type="password"
+              className="form-input"
+              value={motDePasse}
+              onChange={(e) => setMotDePasse(e.target.value)}
+              required
+              placeholder="••••••••"
+              autoComplete="current-password"
+            />
+          </div>
+
+          {captchaRequired && TURNSTILE_SITE_KEY && (
             <div className="form-group">
-              <label className="form-label" htmlFor="email">Adresse e-mail</label>
-              <input
-                id="email"
-                type="email"
-                className="form-input"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                placeholder="vous@exemple.com"
-                autoComplete="email"
-                autoFocus
+              <TurnstileWidget
+                enabled
+                siteKey={TURNSTILE_SITE_KEY}
+                onVerify={setCaptchaToken}
+                resetSignal={captchaReset}
               />
             </div>
-
-            <div className="form-group">
-              <label className="form-label" htmlFor="password">Mot de passe</label>
-              <input
-                id="password"
-                type="password"
-                className="form-input"
-                value={motDePasse}
-                onChange={(e) => setMotDePasse(e.target.value)}
-                required
-                placeholder="••••••••"
-                autoComplete="current-password"
-              />
-            </div>
-
-            {captchaRequired && TURNSTILE_SITE_KEY && (
-              <div className="form-group">
-                <TurnstileWidget
-                  enabled
-                  siteKey={TURNSTILE_SITE_KEY}
-                  onVerify={setCaptchaToken}
-                  resetSignal={captchaReset}
-                />
-              </div>
-            )}
-
-            {erreur && (
-              <div className="error-text">
-                {erreur}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={chargement}
-              style={{ width: '100%', justifyContent: 'center', marginTop: 6, padding: '12px' }}
-            >
-              {chargement ? 'Connexion…' : 'Se connecter'}
-            </button>
-          </form>
-
-          {process.env.NODE_ENV !== 'production' && (
-            <>
-              <hr className="divider" style={{ margin: '20px 0' }} />
-              <button
-                type="button"
-                onClick={devLogin}
-                disabled={chargement}
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  background: 'linear-gradient(135deg,#7c3aed,#9c27b0)',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: 8,
-                  fontWeight: 700,
-                  fontSize: 13,
-                  cursor: 'pointer',
-                  opacity: chargement ? 0.6 : 1,
-                }}
-              >
-                ⚡ Dev — Connexion Mikee
-              </button>
-            </>
           )}
 
-          <hr className="divider" style={{ margin: '20px 0' }} />
+          {erreur && <div className="error-text">{erreur}</div>}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>
-            <span>
-              Pas encore membre ?{' '}
-              <Link href="/inscription" style={{ fontWeight: 700, color: 'var(--primary)' }}>
-                Créer un compte
-              </Link>
-            </span>
-            <Link href="/mot-de-passe-oublie" style={{ color: 'var(--text-muted)', textDecoration: 'underline' }}>
-              Mot de passe oublié ?
-            </Link>
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={chargement}
+            style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}
+          >
+            {chargement ? 'Connexion…' : 'Se connecter'}
+          </button>
+
+          <p style={{ fontSize: 12, color: 'var(--text-dim)', textAlign: 'center' }}>
+            En vous connectant, vous acceptez nos{' '}
+            <Link href="/legal/cgu" style={{ color: 'var(--text-dim)', textDecoration: 'underline' }}>CGU</Link>
+            {' '}et notre{' '}
+            <Link href="/legal/privacy" style={{ color: 'var(--text-dim)', textDecoration: 'underline' }}>politique de confidentialité</Link>.
+          </p>
+        </form>
+
+        {process.env.NODE_ENV !== 'production' && (
+          <div style={{ marginTop: 16 }}>
+            <button
+              type="button"
+              onClick={devLogin}
+              disabled={chargement}
+              style={{
+                width: '100%',
+                padding: '10px',
+                background: 'linear-gradient(135deg,#7c3aed,#9c27b0)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 8,
+                fontWeight: 700,
+                fontSize: 13,
+                cursor: 'pointer',
+                opacity: chargement ? 0.6 : 1,
+              }}
+            >
+              ⚡ Dev — Connexion Mikee
+            </button>
           </div>
-        </div>
+        )}
+      </div>
 
-        <p style={{ fontSize: 12, color: 'var(--text-dim)', textAlign: 'center', marginTop: 20 }}>
-          En vous connectant, vous acceptez nos{' '}
-          <Link href="/legal/cgu" style={{ color: 'var(--text-dim)', textDecoration: 'underline' }}>CGU</Link>
-          {' '}et notre{' '}
-          <Link href="/legal/privacy" style={{ color: 'var(--text-dim)', textDecoration: 'underline' }}>politique de confidentialité</Link>.
-        </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', marginTop: 20 }}>
+        <span>
+          Pas encore membre ?{' '}
+          <Link href="/inscription" style={{ fontWeight: 600 }}>
+            Créer un compte
+          </Link>
+        </span>
+        <Link href="/mot-de-passe-oublie" style={{ color: 'var(--text-muted)', textDecoration: 'underline' }}>
+          Mot de passe oublié ?
+        </Link>
       </div>
     </div>
   );

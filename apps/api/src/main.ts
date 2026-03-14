@@ -5,13 +5,17 @@ import rateLimit from 'express-rate-limit';
 import { AppModule } from './modules/app.module';
 
 function logEmailConfiguration() {
+  const emailEnabled = process.env.EMAIL_ENABLED !== 'false';
   const smtpHost = process.env.SMTP_HOST?.trim();
   const appUrl = process.env.APP_URL?.trim();
 
+  if (!emailEnabled) {
+    // eslint-disable-next-line no-console
+    console.warn('Email disabled via EMAIL_ENABLED=false.');
+    return;
+  }
+
   if (!smtpHost) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('SMTP_HOST est requis en production pour envoyer les e-mails.');
-    }
     // eslint-disable-next-line no-console
     console.warn('Email disabled: SMTP_HOST absent. Les e-mails seront journalisés uniquement.');
     return;

@@ -7,6 +7,7 @@ const nodemailer: typeof import('nodemailer') = require('nodemailer');
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
+  private readonly emailEnabled = process.env.EMAIL_ENABLED !== 'false';
   private readonly from = process.env.EMAIL_FROM ?? 'noreply@example.com';
   private readonly appUrl = process.env.APP_URL ?? 'http://localhost:3000';
   private readonly smtpHost = process.env.SMTP_HOST?.trim();
@@ -16,7 +17,7 @@ export class EmailService {
   private readonly smtpPass = process.env.SMTP_PASS?.trim();
 
   private isConfigured() {
-    return !!this.smtpHost;
+    return this.emailEnabled && !!this.smtpHost;
   }
 
   private createTransport() {
