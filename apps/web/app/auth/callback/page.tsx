@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { apiFetch } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
@@ -11,7 +12,37 @@ type OAuthSessionResult = {
   user: { id: string; displayName: string; email: string; trustLevel: string; isAdultVerified?: boolean };
 };
 
-export default function AuthCallbackPage() {
+function CallbackCard({
+  error,
+}: {
+  error?: string | null;
+}) {
+  return (
+    <div style={{ maxWidth: 460, margin: '72px auto', padding: '0 24px' }}>
+      <div className="card card-lg" style={{ textAlign: 'center' }}>
+        {error ? (
+          <>
+            <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 10 }}>Connexion sociale indisponible</h1>
+            <p className="error-text" style={{ marginBottom: 18 }}>{error}</p>
+            <Link href="/connexion" className="btn btn-primary">
+              Retour à la connexion
+            </Link>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: 34, marginBottom: 12 }}>⏳</div>
+            <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Connexion en cours</h1>
+            <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
+              Finalisation de votre session Google / Facebook…
+            </p>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { connecter } = useAuth();
@@ -67,27 +98,13 @@ export default function AuthCallbackPage() {
     };
   }, [connecter, router, searchParams]);
 
+  return <CallbackCard error={error} />;
+}
+
+export default function AuthCallbackPage() {
   return (
-    <div style={{ maxWidth: 460, margin: '72px auto', padding: '0 24px' }}>
-      <div className="card card-lg" style={{ textAlign: 'center' }}>
-        {error ? (
-          <>
-            <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 10 }}>Connexion sociale indisponible</h1>
-            <p className="error-text" style={{ marginBottom: 18 }}>{error}</p>
-            <Link href="/connexion" className="btn btn-primary">
-              Retour à la connexion
-            </Link>
-          </>
-        ) : (
-          <>
-            <div style={{ fontSize: 34, marginBottom: 12 }}>⏳</div>
-            <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Connexion en cours</h1>
-            <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
-              Finalisation de votre session Google / Facebook…
-            </p>
-          </>
-        )}
-      </div>
-    </div>
+    <Suspense fallback={<CallbackCard />}>
+      <AuthCallbackContent />
+    </Suspense>
   );
 }
