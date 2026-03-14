@@ -17,7 +17,7 @@ function logEmailConfiguration() {
 
   if (!smtpHost) {
     // eslint-disable-next-line no-console
-    console.warn('Email disabled: SMTP_HOST absent. Les e-mails seront journalisés uniquement.');
+    console.warn('Email disabled: SMTP_HOST absent. Les e-mails sont désactivés tant que le SMTP n’est pas configuré.');
     return;
   }
 
