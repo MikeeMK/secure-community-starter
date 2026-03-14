@@ -3,6 +3,7 @@ export const safeUserSelect = {
   email: true,
   displayName: true,
   trustLevel: true,
+  emailVerifiedAt: true,
   isAdultVerified: true,
   createdAt: true,
 } as const;
@@ -12,6 +13,7 @@ export type SafeUser = {
   email: string;
   displayName: string;
   trustLevel: string;
+  emailVerifiedAt: Date | null;
   isAdultVerified: boolean;
   createdAt: Date;
 };

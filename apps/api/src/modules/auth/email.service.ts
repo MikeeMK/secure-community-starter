@@ -9,20 +9,29 @@ export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private readonly from = process.env.EMAIL_FROM ?? 'noreply@example.com';
   private readonly appUrl = process.env.APP_URL ?? 'http://localhost:3000';
+  private readonly smtpHost = process.env.SMTP_HOST?.trim();
+  private readonly smtpPort = parseInt(process.env.SMTP_PORT ?? '587', 10);
+  private readonly smtpSecure = process.env.SMTP_SECURE === 'true';
+  private readonly smtpUser = process.env.SMTP_USER?.trim();
+  private readonly smtpPass = process.env.SMTP_PASS?.trim();
 
   private isConfigured() {
-    return !!process.env.SMTP_HOST;
+    return !!this.smtpHost;
   }
 
   private createTransport() {
     return nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT ?? '587', 10),
-      secure: process.env.SMTP_SECURE === 'true',
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
+      host: this.smtpHost,
+      port: this.smtpPort,
+      secure: this.smtpSecure,
+      ...(this.smtpUser || this.smtpPass
+        ? {
+            auth: {
+              user: this.smtpUser,
+              pass: this.smtpPass,
+            },
+          }
+        : {}),
     });
   }
 

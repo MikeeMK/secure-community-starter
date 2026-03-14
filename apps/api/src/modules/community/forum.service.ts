@@ -1,5 +1,4 @@
 import { Injectable, ForbiddenException, BadRequestException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { TokenService } from '../tokens/token.service';
 
@@ -44,7 +43,7 @@ export class ForumService {
         _count: { select: { posts: true } },
       },
     });
-    return topics.map((t) => ({ ...t, category: normalizeCategory(t.category) }));
+    return topics.map((t: (typeof topics)[number]) => ({ ...t, category: normalizeCategory(t.category) }));
   }
 
   async listAnnouncements(opts: { category?: string; region?: string; search?: string; userId?: string }) {
@@ -75,7 +74,7 @@ export class ForumService {
         ...(userId ? { favorites: { where: { userId }, select: { userId: true } } } : {}),
       },
     });
-    return topics.map((t) => ({
+    return topics.map((t: (typeof topics)[number]) => ({
       ...t,
       category: normalizeCategory(t.category),
       isFavorited: userId ? ((t as { favorites?: { userId: string }[] }).favorites?.length ?? 0) > 0 : false,
@@ -101,7 +100,7 @@ export class ForumService {
         _count: { select: { likes: true } },
       },
     });
-    return topics.map((t) => ({ ...t, category: normalizeCategory(t.category) }));
+    return topics.map((t: (typeof topics)[number]) => ({ ...t, category: normalizeCategory(t.category) }));
   }
 
   async getTopic(id: string) {
@@ -159,7 +158,7 @@ export class ForumService {
         },
       },
     });
-    return favs.map((f) => ({ ...f.topic, isFavorited: true }));
+    return favs.map((f: (typeof favs)[number]) => ({ ...f.topic, isFavorited: true }));
   }
 
   async listFavoritesReceived(authorId: string) {
@@ -220,7 +219,7 @@ export class ForumService {
         isAnnouncement: input.isAnnouncement ?? false,
         category,
         region: input.region ?? null,
-        photos: input.photos ?? Prisma.JsonNull,
+        photos: input.photos ?? undefined,
       },
       select: {
         id: true,

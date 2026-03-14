@@ -6,6 +6,7 @@ import { Avatar } from './Avatar';
 import { TrustBadge } from './Badge';
 import { ExpandableBio } from './ExpandableBio';
 import { apiFetch } from '../lib/api';
+import { toPlainTextPreview } from '../lib/markdown';
 import { isUserOnline, normalizeLookingForValues } from '../lib/profile';
 
 type UserProfileResponse = {
@@ -344,7 +345,10 @@ export function UserProfileOverlay({ userId, onClose }: UserProfileOverlayProps)
                           Réponse dans <span style={{ fontWeight: 700 }}>{post.topic.title}</span>
                         </div>
                         <p className="post-body" style={{ fontSize: 14 }}>
-                          {post.body.length > 220 ? `${post.body.slice(0, 220)}...` : post.body}
+                          {(() => {
+                            const preview = toPlainTextPreview(post.body);
+                            return preview.length > 220 ? `${preview.slice(0, 220)}...` : preview;
+                          })()}
                         </p>
                       </div>
                     </Link>

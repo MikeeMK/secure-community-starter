@@ -3,7 +3,7 @@
 import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
-import { apiFetch, AUTH_TOKEN_STORAGE_KEY } from '../lib/api';
+import { apiFetch } from '../lib/api';
 
 type Tab = 'profil' | 'password' | 'confidentialite';
 
@@ -83,7 +83,7 @@ function Toggle({ checked, onChange, label, description }: {
 }
 
 function ComptePageInner() {
-  const { utilisateur, estAuthentifie, connecter } = useAuth();
+  const { utilisateur, estAuthentifie, authResolved, connecter } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -115,6 +115,7 @@ function ComptePageInner() {
   const [settingsSuccess, setSettingsSuccess] = useState(false);
 
   useEffect(() => {
+    if (!authResolved) return;
     if (!estAuthentifie) { router.push('/connexion'); return; }
     apiFetch<AccountData>('/account').then((data) => {
       setAccount(data);
@@ -122,7 +123,7 @@ function ComptePageInner() {
       if (data.settings) setSettings(data.settings);
     }).catch(() => {});
     apiFetch<Settings>('/account/settings').then((s) => setSettings(s)).catch(() => {});
-  }, [estAuthentifie, router]);
+  }, [authResolved, estAuthentifie, router]);
 
   const daysLeft = account ? daysUntilNextChange(account.displayNameUpdatedAt) : null;
   const canChangeDisplayName = daysLeft === null;
@@ -195,13 +196,7 @@ function ComptePageInner() {
         adultVerifiedAt: new Date().toISOString(),
       } : prev);
       setAdultVerificationSuccess(true);
-
-      if (typeof window !== 'undefined') {
-        const token = localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
-        if (token) {
-          connecter(result.user, token);
-        }
-      }
+      connecter(result.user);
     } catch (err: unknown) {
       setAdultVerificationError(err instanceof Error ? err.message : 'Erreur');
     } finally {
@@ -225,7 +220,7 @@ function ComptePageInner() {
     }
   }
 
-  if (!utilisateur || !account) return <div className="loading-text">Chargement…</div>;
+  if (!authResolved || !utilisateur || !account) return <div className="loading-text">Chargement…</div>;
 
   const TABS: { id: Tab; label: string }[] = [
     { id: 'profil', label: 'Profil' },

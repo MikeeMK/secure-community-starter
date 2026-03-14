@@ -221,6 +221,59 @@ export class AuthService {
     return { user, accessToken };
   }
 
+  async oauthLogin(input: {
+    email: string;
+    displayName: string;
+    provider: 'google' | 'facebook';
+    emailVerified?: boolean;
+  }) {
+    const existing = await this.prisma.user.findUnique({
+      where: { email: input.email },
+      select: safeUserSelect,
+    });
+
+    if (existing) {
+      if (input.emailVerified && !existing.emailVerifiedAt) {
+        await this.prisma.user.update({
+          where: { id: existing.id },
+          data: { emailVerifiedAt: new Date() },
+        });
+        this.tokens.awardMilestone(existing.id, 'email_verified').catch(() => {});
+      }
+
+      const refreshedUser = await this.prisma.user.findUnique({
+        where: { id: existing.id },
+        select: safeUserSelect,
+      });
+      if (!refreshedUser) throw new NotFoundException('Utilisateur introuvable');
+
+      const accessToken = await this.buildToken(refreshedUser);
+      return { user: refreshedUser, accessToken };
+    }
+
+    const passwordHash = await argon2.hash(randomBytes(32).toString('hex'), {
+      type: argon2.argon2id,
+    });
+
+    const createdUser = await this.prisma.user.create({
+      data: {
+        email: input.email,
+        displayName: input.displayName,
+        trustLevel: 'new',
+        passwordHash,
+        emailVerifiedAt: input.emailVerified ? new Date() : null,
+      },
+      select: safeUserSelect,
+    });
+
+    if (input.emailVerified) {
+      this.tokens.awardMilestone(createdUser.id, 'email_verified').catch(() => {});
+    }
+
+    const accessToken = await this.buildToken(createdUser);
+    return { user: createdUser, accessToken };
+  }
+
   // -------------------------------------------------------------------------
   // updateLastActive — throttled: only writes if stale by more than 4 minutes
   // -------------------------------------------------------------------------
@@ -276,7 +329,8 @@ export class AuthService {
     }
 
     this.loginAttempts.reset(attemptKey);
-    const { passwordHash: _ph, ...safeUser } = user;
+    const { passwordHash: _passwordHash, ...safeUser } = user;
+    void _passwordHash;
     const accessToken = await this.buildToken(safeUser);
     return { user: safeUser, accessToken };
   }

@@ -29,9 +29,9 @@ type Topic = { id: string; title: string; createdAt: string };
 
 const navItems = [
   { icon: '🏠', label: 'Dashboard', href: '/dashboard' },
-  { icon: '🔍', label: 'Recherche', href: '/recherche' },
+  { icon: '🔍', label: 'Recherche', href: '/annonces' },
   { icon: '💬', label: 'Messagerie', href: '/messagerie' },
-  { icon: '👥', label: 'Contacts', href: '/membres' },
+  { icon: '👥', label: 'Membres', href: '/membres' },
   { icon: '⭐', label: 'Annonces favorites', href: '/annonces/favoris' },
   { icon: '📢', label: 'Mes annonces', href: '/mes-annonces' },
   { icon: '⚙️', label: 'Paramètres', href: '/compte' },
@@ -40,7 +40,7 @@ const navItems = [
 const ANNOUNCEMENT_CATEGORIES = ['Amitié', 'Activités', 'Rencontre adulte', 'Autre'] as const;
 
 export default function DashboardPage() {
-  const { utilisateur, estAuthentifie } = useAuth();
+  const { utilisateur, estAuthentifie, authResolved } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [profile, setProfile] = React.useState<UserProfile | null>(null);
@@ -68,6 +68,7 @@ export default function DashboardPage() {
   const effectiveRegion = announcementDept || announcementRegion;
 
   React.useEffect(() => {
+    if (!authResolved) return;
     if (!estAuthentifie) {
       router.push('/connexion');
       return;
@@ -109,7 +110,7 @@ export default function DashboardPage() {
       window.removeEventListener('focus', onFocus);
       if (interval) clearInterval(interval);
     };
-  }, [estAuthentifie, router, utilisateur?.trustLevel]);
+  }, [authResolved, estAuthentifie, router, utilisateur?.trustLevel]);
 
   async function handleAnnouncement(e: React.FormEvent) {
     e.preventDefault();
@@ -152,7 +153,7 @@ export default function DashboardPage() {
     }
   }
 
-  if (!utilisateur) {
+  if (!authResolved || !utilisateur) {
     return <div className="loading-text">Chargement…</div>;
   }
 

@@ -57,7 +57,7 @@ export class SidebarService {
       ]);
 
     const activity = [
-      ...recentTopics.map((t) => ({
+      ...recentTopics.map((t: (typeof recentTopics)[number]) => ({
         type: 'topic' as const,
         id: `topic-${t.id}`,
         actorId: t.author.id,
@@ -66,7 +66,7 @@ export class SidebarService {
         label: t.title,
         at: t.createdAt,
       })),
-      ...recentPosts.map((p) => ({
+      ...recentPosts.map((p: (typeof recentPosts)[number]) => ({
         type: 'post' as const,
         id: `post-${p.id}`,
         actorId: p.author.id,
@@ -75,7 +75,7 @@ export class SidebarService {
         label: p.topic.title,
         at: p.createdAt,
       })),
-      ...recentRegistrations.map((u) => ({
+      ...recentRegistrations.map((u: (typeof recentRegistrations)[number]) => ({
         type: 'register' as const,
         id: `reg-${u.id}`,
         actorId: u.id,

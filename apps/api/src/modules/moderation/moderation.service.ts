@@ -1,4 +1,4 @@
-import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TokenService } from '../tokens/token.service';
 
@@ -9,14 +9,14 @@ export class ModerationService {
     private readonly tokens: TokenService,
   ) {}
 
-  private async notifyStaff(message: string, link: string, roles: string[]) {
+  private async notifyStaff(message: string, link: string, roles: Array<'moderator' | 'super_admin'>) {
     const staff = await this.prisma.user.findMany({
-      where: { trustLevel: { in: roles as any } },
+      where: { trustLevel: { in: roles } },
       select: { id: true },
     });
     if (staff.length === 0) return;
     await this.prisma.notification.createMany({
-      data: staff.map((u) => ({ userId: u.id, message, link })),
+      data: staff.map((u: (typeof staff)[number]) => ({ userId: u.id, message, link })),
       skipDuplicates: true,
     });
   }
@@ -77,7 +77,12 @@ export class ModerationService {
     const report = await this.prisma.report.findUnique({ where: { id: input.reportId } });
     if (!report) throw new NotFoundException('Report not found');
 
-    const data: any = {
+    const data: {
+      status: 'IN_REVIEW' | 'RESOLVED' | 'DISMISSED';
+      handledById: string;
+      resolutionReason: string | null;
+      rewardTokens: number;
+    } = {
       status: input.status,
       handledById: input.staffId,
       resolutionReason: input.resolutionReason ?? null,

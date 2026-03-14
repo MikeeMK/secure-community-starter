@@ -1,47 +1,123 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { renderMarkdown } from '../lib/markdown';
+import { renderRichText } from '../lib/markdown';
 
 const EMOJIS = [
-  '😊','😍','🔥','❤️','💬','✨','😂','🥰','😎','🤔',
-  '👀','💭','🎉','🙏','💪','🌹','😘','😗','🤭','😉',
-  '🫶','🍕','🌴','🎭','💦','🧊','😈','📸','🌟','⚡',
-  '🤗','🤩','🥳','😇','🤤','😜','😤','🤯','😴','🤮',
-  '🤒','🤧','🥶','🥵','🤢','🤓','🤠','👻','💀','👽',
-  '🐱','🐶','🐼','🐧','🐸','🦄','🐢','🦋','🍀','🍓',
-  '🍔','🍣','🍰','🍿','☕','🍺','🍷','🥂','🏆','⚽',
-  '🎸','🥁','🎧','🎬','✈️','🚗','🚲','🏖️','🌋','🌌',
+  '😊', '😍', '🔥', '❤️', '💬', '✨', '😂', '🥰', '😎', '🤔',
+  '👀', '💭', '🎉', '🙏', '💪', '🌹', '😘', '😗', '🤭', '😉',
+  '🫶', '🍕', '🌴', '🎭', '💦', '🧊', '😈', '📸', '🌟', '⚡',
+  '🤗', '🤩', '🥳', '😇', '🤤', '😜', '😤', '🤯', '😴', '🤮',
+  '🤒', '🤧', '🥶', '🥵', '🤢', '🤓', '🤠', '👻', '💀', '👽',
+  '🐱', '🐶', '🐼', '🐧', '🐸', '🦄', '🐢', '🦋', '🍀', '🍓',
+  '🍔', '🍣', '🍰', '🍿', '☕', '🍺', '🍷', '🥂', '🏆', '⚽',
+  '🎸', '🥁', '🎧', '🎬', '✈️', '🚗', '🚲', '🏖️', '🌋', '🌌',
 ];
 
 const RECENT_KEY = 'richtextarea_recent_emojis';
 
-type ToolbarAction = { label: string; title: string; wrap?: [string, string]; icon: string };
+type ToolbarAction = {
+  key: 'bold' | 'italic';
+  label: string;
+  title: string;
+};
 
 const ACTIONS: ToolbarAction[] = [
-  { icon: 'B', label: 'B', title: 'Gras', wrap: ['**', '**'] },
-  { icon: 'I', label: 'I', title: 'Italique', wrap: ['*', '*'] },
-  { icon: '<>', label: '<>', title: 'Code', wrap: ['`', '`'] },
+  { key: 'bold', label: 'B', title: 'Gras' },
+  { key: 'italic', label: 'I', title: 'Italique' },
 ];
 
-  function applyWrap(
-    textarea: HTMLTextAreaElement,
-    open: string,
-    close: string,
-    onChange: (v: string) => void,
-  ) {
-    const { selectionStart: s, selectionEnd: e, value } = textarea;
-    const safeS = s ?? 0;
-    const safeE = e ?? safeS;
-    const selected = value.slice(safeS, safeE) || 'texte';
-    const newVal = value.slice(0, safeS) + open + selected + close + value.slice(safeE);
-    onChange(newVal);
-    requestAnimationFrame(() => {
-      textarea.focus();
-      const start = safeS + open.length;
-      textarea.setSelectionRange(start, start + selected.length);
-    });
+function getSelectionRange(root: HTMLElement) {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return null;
+
+  const range = selection.getRangeAt(0);
+  const startInside = root.contains(range.startContainer);
+  const endInside = root.contains(range.endContainer);
+
+  return startInside && endInside ? range : null;
+}
+
+function placeCaretAtEnd(element: HTMLElement) {
+  const range = document.createRange();
+  range.selectNodeContents(element);
+  range.collapse(false);
+
+  const selection = window.getSelection();
+  if (!selection) return;
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+function escapeTextContent(text: string) {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function serializeNode(node: Node): string {
+  if (node.nodeType === Node.TEXT_NODE) {
+    return escapeTextContent(node.textContent?.replace(/\u00a0/g, ' ') ?? '');
   }
+
+  if (node.nodeType !== Node.ELEMENT_NODE) {
+    return '';
+  }
+
+  const element = node as HTMLElement;
+  const tag = element.tagName;
+
+  if (tag === 'BR') {
+    return '\n';
+  }
+
+  const childContent = Array.from(element.childNodes).map(serializeNode).join('');
+
+  if (tag === 'STRONG' || tag === 'B') {
+    return `<strong>${childContent}</strong>`;
+  }
+
+  if (tag === 'EM' || tag === 'I') {
+    return `<em>${childContent}</em>`;
+  }
+
+  if (tag === 'DIV' || tag === 'P') {
+    return `${childContent}${childContent.endsWith('<br>') || childContent.length === 0 ? '' : '<br>'}`;
+  }
+
+  return childContent;
+}
+
+function serializeEditor(root: HTMLElement) {
+  return Array.from(root.childNodes)
+    .map(serializeNode)
+    .join('')
+    .replace(/(?:<br>){3,}/g, '<br><br>')
+    .trimEnd();
+}
+
+function insertEmojiAtSelection(root: HTMLElement, emoji: string) {
+  const range = getSelectionRange(root);
+  if (!range) {
+    root.focus();
+    placeCaretAtEnd(root);
+    return insertEmojiAtSelection(root, emoji);
+  }
+
+  range.deleteContents();
+  const textNode = document.createTextNode(emoji);
+  range.insertNode(textNode);
+
+  const nextRange = document.createRange();
+  nextRange.setStartAfter(textNode);
+  nextRange.collapse(true);
+
+  const selection = window.getSelection();
+  if (!selection) return;
+  selection.removeAllRanges();
+  selection.addRange(nextRange);
+}
 
 export function RichTextarea({
   value,
@@ -54,49 +130,38 @@ export function RichTextarea({
   placeholder?: string;
   rows?: number;
 }) {
-  const ref = useRef<HTMLTextAreaElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
   const [showEmoji, setShowEmoji] = useState(false);
-  const [overlayHeight, setOverlayHeight] = useState<number | null>(null);
-  const toolbarRef = useRef<HTMLDivElement>(null);
-  const counterRef = useRef<HTMLDivElement>(null);
-  const [toolbarHeight, setToolbarHeight] = useState(44);
-  const [counterHeight, setCounterHeight] = useState(28);
   const [recentEmojis, setRecentEmojis] = useState<string[]>([]);
   const [showAllEmojis, setShowAllEmojis] = useState(false);
-
-  useEffect(() => {
-    const ta = ref.current;
-    if (!ta) return;
-    ta.style.height = 'auto';
-    const next = Math.min(Math.max(ta.scrollHeight, rows * 24), 600);
-    ta.style.height = `${next}px`;
-    setOverlayHeight(next);
-  }, [value, rows]);
-
-  useEffect(() => {
-    const measure = () => {
-      if (toolbarRef.current) setToolbarHeight(toolbarRef.current.getBoundingClientRect().height);
-      if (counterRef.current) setCounterHeight(counterRef.current.getBoundingClientRect().height);
-    };
-    measure();
-    const id = requestAnimationFrame(measure);
-    return () => cancelAnimationFrame(id);
-  }, [value, showEmoji]);
+  const [isFocused, setIsFocused] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const stored = localStorage.getItem(RECENT_KEY);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored) as string[];
-        setRecentEmojis(parsed.slice(0, 12));
-      } catch {}
+    if (!stored) return;
+
+    try {
+      const parsed = JSON.parse(stored) as string[];
+      setRecentEmojis(parsed.slice(0, 12));
+    } catch {
+      setRecentEmojis([]);
     }
   }, []);
 
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    const currentValue = serializeEditor(editor);
+    if (currentValue === value) return;
+
+    editor.innerHTML = value ? renderRichText(value) : '';
+  }, [value]);
+
   function pushRecent(emoji: string) {
     setRecentEmojis((prev) => {
-      const next = [emoji, ...prev.filter((e) => e !== emoji)].slice(0, 12);
+      const next = [emoji, ...prev.filter((entry) => entry !== emoji)].slice(0, 12);
       if (typeof window !== 'undefined') {
         localStorage.setItem(RECENT_KEY, JSON.stringify(next));
       }
@@ -104,44 +169,64 @@ export function RichTextarea({
     });
   }
 
-  function insertEmoji(emoji: string) {
-    const ta = ref.current;
-    if (!ta) { onChange(value + emoji); return; }
-    const s = ta.selectionStart ?? value.length;
-    const e = ta.selectionEnd ?? value.length;
-    const newVal = value.slice(0, s) + emoji + value.slice(e);
-    onChange(newVal);
-    pushRecent(emoji);
-    requestAnimationFrame(() => {
-      ta.focus();
-      const pos = s + emoji.length;
-      ta.setSelectionRange(pos, pos);
-    });
-    setShowEmoji(false);
+  function emitChange() {
+    const editor = editorRef.current;
+    if (!editor) return;
+    onChange(serializeEditor(editor));
   }
 
+  function handleFormat(action: ToolbarAction['key']) {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    editor.focus();
+    document.execCommand(action === 'bold' ? 'bold' : 'italic');
+    emitChange();
+  }
+
+  function handleEmojiInsert(emoji: string) {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    editor.focus();
+    insertEmojiAtSelection(editor, emoji);
+    pushRecent(emoji);
+    setShowEmoji(false);
+    emitChange();
+  }
+
+  const minHeight = rows * 24;
+  const isEmpty = value.trim().length === 0;
+
   return (
-    <div style={{ position: 'relative', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden', background: 'var(--bg-card)' }}>
-      {/* Toolbar */}
+    <div
+      style={{
+        position: 'relative',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius)',
+        overflow: 'hidden',
+        background: 'var(--bg-card)',
+      }}
+    >
       <div
-        ref={toolbarRef}
         style={{
-        display: 'flex',
-        gap: 2,
-        padding: '6px 8px',
-        borderBottom: '1px solid var(--border)',
-        background: 'var(--surface-2)',
-        flexWrap: 'wrap',
-        alignItems: 'center',
-      }}>
-        {ACTIONS.map((a) => (
+          display: 'flex',
+          gap: 2,
+          padding: '6px 8px',
+          borderBottom: '1px solid var(--border)',
+          background: 'var(--surface-2)',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+        }}
+      >
+        {ACTIONS.map((action) => (
           <button
-            key={a.label}
+            key={action.key}
             type="button"
-            title={a.title}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              if (ref.current && a.wrap) applyWrap(ref.current, a.wrap[0], a.wrap[1], onChange);
+            title={action.title}
+            onMouseDown={(event) => {
+              event.preventDefault();
+              handleFormat(action.key);
             }}
             style={{
               width: 28,
@@ -153,91 +238,118 @@ export function RichTextarea({
               borderRadius: 4,
               background: 'none',
               cursor: 'pointer',
-              fontSize: a.label === 'B' ? 13 : 12,
-              fontWeight: a.label === 'B' ? 900 : a.label === 'I' ? 400 : 700,
-              fontStyle: a.label === 'I' ? 'italic' : 'normal',
-              fontFamily: a.label === '<>' ? 'monospace' : 'inherit',
+              fontSize: action.key === 'bold' ? 13 : 12,
+              fontWeight: action.key === 'bold' ? 900 : 400,
+              fontStyle: action.key === 'italic' ? 'italic' : 'normal',
+              fontFamily: 'inherit',
               color: 'var(--text)',
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-3)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+            onMouseEnter={(event) => {
+              event.currentTarget.style.background = 'var(--surface-3)';
+            }}
+            onMouseLeave={(event) => {
+              event.currentTarget.style.background = 'none';
+            }}
           >
-            {a.icon}
+            {action.label}
           </button>
         ))}
 
         <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
 
-        {/* Emoji picker button */}
         <div style={{ position: 'relative' }}>
           <button
             type="button"
             title="Emoji"
-            onClick={() => setShowEmoji((v) => !v)}
+            onClick={() => setShowEmoji((prev) => !prev)}
             style={{
-              width: 28, height: 28,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              border: '1px solid transparent', borderRadius: 4,
+              width: 28,
+              height: 28,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: '1px solid transparent',
+              borderRadius: 4,
               background: showEmoji ? 'var(--surface-3)' : 'none',
-              cursor: 'pointer', fontSize: 16,
+              cursor: 'pointer',
+              fontSize: 16,
             }}
           >
             😊
           </button>
+
           {showEmoji && (
-            <div style={{
-              position: 'absolute',
-              top: 34,
-              left: 0,
-              zIndex: 50,
-              background: 'var(--bg-card)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius)',
-              padding: 8,
-              display: 'grid',
-              gridTemplateColumns: 'repeat(6, 1fr)',
-              gap: 6,
-              width: 240,
-              maxHeight: 260,
-              overflowY: 'auto',
-              boxShadow: 'var(--shadow-lg)',
-            }}>
+            <div
+              style={{
+                position: 'absolute',
+                top: 34,
+                left: 0,
+                zIndex: 50,
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)',
+                padding: 8,
+                display: 'grid',
+                gridTemplateColumns: 'repeat(6, 1fr)',
+                gap: 6,
+                width: 240,
+                maxHeight: 260,
+                overflowY: 'auto',
+                boxShadow: 'var(--shadow-lg)',
+              }}
+            >
               {(recentEmojis.length === 0 || showAllEmojis) && (
                 <>
-                  {EMOJIS.map((em) => (
+                  {EMOJIS.map((emoji) => (
                     <button
-                      key={em}
+                      key={emoji}
                       type="button"
-                      onClick={() => insertEmoji(em)}
+                      onClick={() => handleEmojiInsert(emoji)}
                       style={{
-                        border: 'none', background: 'none', cursor: 'pointer',
-                        fontSize: 20, padding: 6, borderRadius: 6,
+                        border: 'none',
+                        background: 'none',
+                        cursor: 'pointer',
+                        fontSize: 20,
+                        padding: 6,
+                        borderRadius: 6,
                         lineHeight: 1,
                       }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-3)')}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                      onMouseEnter={(event) => {
+                        event.currentTarget.style.background = 'var(--surface-3)';
+                      }}
+                      onMouseLeave={(event) => {
+                        event.currentTarget.style.background = 'none';
+                      }}
                     >
-                      {em}
+                      {emoji}
                     </button>
                   ))}
                 </>
               )}
 
               {recentEmojis.length > 0 && !showAllEmojis && (
-                recentEmojis.map((em) => (
+                recentEmojis.map((emoji) => (
                   <button
-                    key={`recent-${em}`}
+                    key={`recent-${emoji}`}
                     type="button"
-                    onClick={() => insertEmoji(em)}
+                    onClick={() => handleEmojiInsert(emoji)}
                     style={{
-                      border: 'none', background: 'none', cursor: 'pointer',
-                      fontSize: 20, padding: 6, borderRadius: 6,
+                      border: 'none',
+                      background: 'none',
+                      cursor: 'pointer',
+                      fontSize: 20,
+                      padding: 6,
+                      borderRadius: 6,
                       lineHeight: 1,
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-3)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                    onMouseEnter={(event) => {
+                      event.currentTarget.style.background = 'var(--surface-3)';
+                    }}
+                    onMouseLeave={(event) => {
+                      event.currentTarget.style.background = 'none';
+                    }}
                   >
-                    {em}
+                    {emoji}
                   </button>
                 ))
               )}
@@ -247,7 +359,7 @@ export function RichTextarea({
                   <button
                     type="button"
                     className="btn btn-ghost btn-xs"
-                    onClick={() => setShowAllEmojis((v) => !v)}
+                    onClick={() => setShowAllEmojis((prev) => !prev)}
                     style={{ width: '100%' }}
                   >
                     {showAllEmojis ? 'Masquer le reste' : 'Voir tous les emojis'}
@@ -257,65 +369,73 @@ export function RichTextarea({
             </div>
           )}
         </div>
-
-        <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-dim)' }}>
-          **gras**, *italique*, `code`
-        </span>
       </div>
 
-      {/* Textarea */}
-      <textarea
-        ref={ref}
-        className="form-input rich-textarea-input"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        rows={rows}
-        spellCheck={false}
-        style={{
-          resize: 'none',
-          fontFamily: 'inherit',
-          border: 'none',
-          borderRadius: 0,
-          background: 'transparent',
-          minHeight: rows * 22,
-          color: 'transparent',
-          caretColor: 'var(--text)',
-          position: 'relative',
-          zIndex: 2,
-          padding: '12px',
-          lineHeight: 1.6,
-          fontSize: 15,
-        }}
-        onClick={() => setShowEmoji(false)}
-      />
+      <div style={{ position: 'relative' }}>
+        {isEmpty && !isFocused && placeholder && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 12,
+              left: 12,
+              right: 12,
+              color: 'var(--text-dim)',
+              fontSize: 15,
+              lineHeight: 1.6,
+              pointerEvents: 'none',
+            }}
+          >
+            {placeholder}
+          </div>
+        )}
 
-      {/* Rendered overlay */}
-      <div
-        aria-hidden
-        style={{
-          position: 'absolute',
-          top: toolbarHeight,
-          left: 0,
-          right: 0,
-          bottom: counterHeight,
-          padding: '12px',
-          pointerEvents: 'none',
-          color: 'var(--text)',
-          fontSize: '14px',
-          lineHeight: 1.6,
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word',
-          overflow: 'hidden',
-          zIndex: 1,
-          minHeight: overlayHeight ?? rows * 22,
-        }}
-        dangerouslySetInnerHTML={{ __html: renderMarkdown(value || '') }}
-      />
+        <div
+          ref={editorRef}
+          contentEditable
+          suppressContentEditableWarning
+          spellCheck={false}
+          onInput={emitChange}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => {
+            setIsFocused(false);
+            setShowEmoji(false);
+          }}
+          onPaste={(event) => {
+            event.preventDefault();
+            const text = event.clipboardData.getData('text/plain');
+            document.execCommand('insertText', false, text);
+          }}
+          onKeyDown={(event) => {
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'b') {
+              event.preventDefault();
+              handleFormat('bold');
+            }
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'i') {
+              event.preventDefault();
+              handleFormat('italic');
+            }
+          }}
+          style={{
+            minHeight,
+            padding: '12px',
+            color: 'var(--text)',
+            fontSize: 15,
+            lineHeight: 1.6,
+            outline: 'none',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+          }}
+        />
+      </div>
 
       <div
-        ref={counterRef}
-        style={{ padding: '4px 10px', fontSize: 11, color: 'var(--text-dim)', borderTop: '1px solid var(--border)', background: 'var(--surface-2)' }}
+        style={{
+          padding: '4px 10px',
+          fontSize: 11,
+          color: 'var(--text-dim)',
+          borderTop: '1px solid var(--border)',
+          background: 'var(--surface-2)',
+        }}
       >
         {value.length} / 5000 caractères
       </div>

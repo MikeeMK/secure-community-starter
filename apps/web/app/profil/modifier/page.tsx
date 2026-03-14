@@ -276,7 +276,7 @@ function ProfilePreview({ profile, displayName, trustLevel }: {
 }
 
 export default function ProfileEditPage() {
-  const { utilisateur, estAuthentifie } = useAuth();
+  const { utilisateur, estAuthentifie, authResolved } = useAuth();
   const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<Tab>('Identité');
@@ -290,6 +290,7 @@ export default function ProfileEditPage() {
   const [showPreview, setShowPreview] = useState(false);
 
   useEffect(() => {
+    if (!authResolved) return;
     if (!estAuthentifie) { router.push('/connexion'); return; }
     apiFetch<{ profile: ProfileData | null }>('/profile/me')
       .then((res) => {
@@ -313,7 +314,7 @@ export default function ProfileEditPage() {
         setFetchDone(true);
       })
       .catch(() => setFetchDone(true));
-  }, [estAuthentifie, router]);
+  }, [authResolved, estAuthentifie, router]);
 
   function set<K extends keyof ProfileData>(key: K, value: ProfileData[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -359,7 +360,7 @@ export default function ProfileEditPage() {
     }
   }
 
-  if (!utilisateur || !fetchDone) return <div className="loading-text">Chargement…</div>;
+  if (!authResolved || !utilisateur || !fetchDone) return <div className="loading-text">Chargement…</div>;
 
   const isAdultVerified = utilisateur.isAdultVerified ?? false;
   const lookingForOptions = isAdultVerified ? [...LOOKING_FOR_BASE, ...LOOKING_FOR_ADULT] : [...LOOKING_FOR_BASE];

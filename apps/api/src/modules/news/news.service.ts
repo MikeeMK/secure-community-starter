@@ -38,7 +38,7 @@ export class NewsService {
     });
 
     // Notify users whose feedbacks are linked
-    const userIds = [...new Set(news.newsFeedbacks.map((nf) => nf.feedback.userId))];
+    const userIds = [...new Set(news.newsFeedbacks.map((nf: (typeof news.newsFeedbacks)[number]) => nf.feedback.userId))];
     if (userIds.length > 0) {
       await this.prisma.notification.createMany({
         data: userIds.map((userId) => ({

@@ -5,12 +5,16 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ApiFetchError, apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { OAuthButtons } from '../components/OAuthButtons';
 import { TurnstileWidget } from '../components/TurnstileWidget';
-import { checkSupabaseLogin } from '../lib/supabaseClient';
+import {
+  checkSupabaseLogin,
+  isSupabaseConfigured,
+  signInWithOAuthProvider,
+} from '../lib/supabaseClient';
 
 type LoginResult = {
   user: { id: string; displayName: string; email: string; trustLevel: string };
-  accessToken: string;
   captchaRequired?: boolean;
 };
 
@@ -50,11 +54,11 @@ export default function ConnexionClient() {
         password: motDePasse,
         ...(captchaToken ? { turnstileToken: captchaToken } : {}),
       };
-      const resultat = await apiFetch<LoginResult>('/auth/login', {
+      const resultat = await apiFetch<LoginResult>('/api/session/login', {
         method: 'POST',
         body: JSON.stringify(body),
       });
-      connecter(resultat.user, resultat.accessToken);
+      connecter(resultat.user);
       setCaptchaRequired(false);
       setCaptchaToken(null);
       setCaptchaReset((v) => v + 1);
@@ -76,14 +80,37 @@ export default function ConnexionClient() {
     setChargement(true);
     setErreur(null);
     try {
-      const resultat = await apiFetch<LoginResult>('/auth/dev-login', {
+      const resultat = await apiFetch<LoginResult>('/api/session/dev-login', {
         method: 'POST',
         body: JSON.stringify({ email: 'mk.chaouch@gmail.com' }),
       });
-      connecter(resultat.user, resultat.accessToken);
+      connecter(resultat.user);
       router.push('/dashboard');
     } catch (e) {
       setErreur(e instanceof Error ? e.message : 'Erreur inconnue');
+    } finally {
+      setChargement(false);
+    }
+  }
+
+  async function handleOAuthLogin(provider: 'google' | 'facebook') {
+    setChargement(true);
+    setErreur(null);
+
+    try {
+      const redirect = params.get('redirect') ?? '/dashboard';
+      const result = await signInWithOAuthProvider(provider, redirect);
+
+      if (!result.ok) {
+        setErreur(result.message);
+        return;
+      }
+
+      if (result.url) {
+        window.location.assign(result.url);
+      }
+    } catch (e) {
+      setErreur(e instanceof Error ? e.message : 'Connexion sociale impossible');
     } finally {
       setChargement(false);
     }
@@ -102,6 +129,29 @@ export default function ConnexionClient() {
         </div>
 
         <div className="card card-lg" style={{ background: 'rgba(17,17,20,0.9)', backdropFilter: 'blur(12px)', border: '1px solid var(--border)' }}>
+          <OAuthButtons
+            disabled={chargement}
+            isConfigured={isSupabaseConfigured}
+            onSelect={handleOAuthLogin}
+          />
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              marginBottom: 18,
+              color: 'var(--text-dim)',
+              fontSize: 12,
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+            }}
+          >
+            <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+            <span>ou avec votre e-mail</span>
+            <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+          </div>
+
           <form onSubmit={handleSubmit} className="stack">
             <div className="form-group">
               <label className="form-label" htmlFor="email">Adresse e-mail</label>

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { apiFetch } from '../lib/api';
 
@@ -34,7 +35,7 @@ export default function PageMotDePasseOublie() {
       <div style={{ width: '100%', maxWidth: 420 }}>
         <div style={{ textAlign: 'center', marginBottom: 36 }}>
           <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none', marginBottom: 24 }}>
-            <img src="/logo.png" alt="Velentra" style={{ height: 160, width: 'auto' }} />
+            <Image src="/logo.png" alt="Velentra" width={160} height={160} priority style={{ height: 160, width: 'auto' }} />
           </Link>
           <h1 style={{ fontSize: 26, fontWeight: 900, marginBottom: 8, letterSpacing: '-0.03em' }}>
             Mot de passe oublié

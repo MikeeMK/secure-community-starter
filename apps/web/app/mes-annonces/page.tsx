@@ -3,8 +3,10 @@
 import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { RichTextarea } from '../components/RichTextarea';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { toPlainTextPreview } from '../lib/markdown';
 
 type Annonce = {
   id: string;
@@ -36,7 +38,7 @@ function CategoryPill({ category }: { category: string }) {
 }
 
 export default function MesAnnoncesPage() {
-  const { utilisateur, estAuthentifie } = useAuth();
+  const { utilisateur, estAuthentifie, authResolved } = useAuth();
   const router = useRouter();
   const [annonces, setAnnonces] = React.useState<Annonce[] | null>(null);
   const [erreur, setErreur] = React.useState<string | null>(null);
@@ -46,6 +48,7 @@ export default function MesAnnoncesPage() {
   const [loading, setLoading] = React.useState(false);
 
   React.useEffect(() => {
+    if (!authResolved) return;
     if (!estAuthentifie) {
       router.push('/connexion');
       return;
@@ -53,9 +56,9 @@ export default function MesAnnoncesPage() {
     apiFetch<Annonce[]>('/community/forum/topics/my-announcements')
       .then((list) => setAnnonces(list))
       .catch(() => { setAnnonces([]); setErreur('Impossible de charger vos annonces.'); });
-  }, [estAuthentifie, router]);
+  }, [authResolved, estAuthentifie, router]);
 
-  if (!utilisateur) return <div className="loading-text">Chargement…</div>;
+  if (!authResolved || !utilisateur) return <div className="loading-text">Chargement…</div>;
 
   async function supprimerAnnonce(id: string) {
     if (!confirm('Supprimer cette annonce ?')) return;
@@ -139,12 +142,11 @@ export default function MesAnnoncesPage() {
                           required
                           maxLength={120}
                         />
-                        <textarea
-                          className="form-textarea"
+                        <RichTextarea
                           value={corpsEdit}
-                          onChange={(e) => setCorpsEdit(e.target.value)}
+                          onChange={setCorpsEdit}
                           rows={5}
-                          required
+                          placeholder="Modifiez le contenu de votre annonce…"
                         />
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                           <button type="button" className="btn btn-primary btn-sm" onClick={sauvegarderEdition} disabled={loading}>
@@ -168,7 +170,7 @@ export default function MesAnnoncesPage() {
                           WebkitBoxOrient: 'vertical',
                           overflow: 'hidden',
                         }}>
-                          {annonce.body}
+                          {toPlainTextPreview(annonce.body)}
                         </p>
                         <Link href={`/annonces/${annonce.id}`} style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary)' }}>
                           Lire plus →

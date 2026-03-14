@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../lib/api';
@@ -82,13 +82,7 @@ export function ChatWidget() {
     return () => clearInterval(interval);
   }, [estAuthentifie]);
 
-  // Fetch conversations when open
-  useEffect(() => {
-    if (!open || !estAuthentifie) return;
-    fetchConvs();
-  }, [open, estAuthentifie]);
-
-  function fetchConvs() {
+  const fetchConvs = useCallback(() => {
     apiFetch<Conversation[]>('/chat/conversations')
       .then((list) => {
         setConvs(list);
@@ -96,19 +90,15 @@ export function ChatWidget() {
         setUnreadTotal(total);
       })
       .catch(() => {});
-  }
+  }, []);
 
-  // Fetch + poll messages when activeConvId set
+  // Fetch conversations when open
   useEffect(() => {
-    if (pollRef.current) clearInterval(pollRef.current);
-    if (!activeConvId || !estAuthentifie) return;
+    if (!open || !estAuthentifie) return;
+    fetchConvs();
+  }, [open, estAuthentifie, fetchConvs]);
 
-    fetchMessages();
-    pollRef.current = setInterval(fetchMessages, 4000);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [activeConvId, estAuthentifie]);
-
-  function fetchMessages() {
+  const fetchMessages = useCallback(() => {
     if (!activeConvId) return;
     apiFetch<ChatMsg[]>(`/chat/${activeConvId}/messages`)
       .then((msgs) => {
@@ -121,7 +111,17 @@ export function ChatWidget() {
         fetchConvs();
       })
       .catch(() => {});
-  }
+  }, [activeConvId, utilisateur?.id, fetchConvs]);
+
+  // Fetch + poll messages when activeConvId set
+  useEffect(() => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    if (!activeConvId || !estAuthentifie) return;
+
+    fetchMessages();
+    pollRef.current = setInterval(fetchMessages, 4000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [activeConvId, estAuthentifie, fetchMessages]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

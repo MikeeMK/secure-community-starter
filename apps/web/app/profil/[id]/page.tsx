@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Avatar } from '../../components/Avatar';
@@ -174,9 +175,16 @@ export default function PageProfilUtilisateur() {
               {profil.announcements.map((a) => (
                 <Link key={a.id} href={`/annonces/${a.id}`} style={{ textDecoration: 'none' }}>
                   <div className="card" style={{ padding: 10, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-                    <div style={{ width: '100%', height: 110, borderRadius: 8, overflow: 'hidden', background: 'var(--surface-3)', marginBottom: 6 }}>
+                    <div style={{ width: '100%', height: 110, borderRadius: 8, overflow: 'hidden', background: 'var(--surface-3)', marginBottom: 6, position: 'relative' }}>
                       {a.photos?.[0] ? (
-                        <img src={a.photos[0]} alt={a.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <Image
+                          src={a.photos[0]}
+                          alt={a.title}
+                          fill
+                          unoptimized
+                          sizes="220px"
+                          style={{ objectFit: 'cover' }}
+                        />
                       ) : (
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)', fontSize: 12 }}>Pas de photo</div>
                       )}

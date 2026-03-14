@@ -8,7 +8,7 @@ import { RichTextarea } from '../../../components/RichTextarea';
 
 export default function ModifierAnnoncePage() {
   const { id } = useParams<{ id: string }>();
-  const { utilisateur, estAuthentifie } = useAuth();
+  const { utilisateur, estAuthentifie, authResolved } = useAuth();
   const router = useRouter();
 
   const [title, setTitle] = React.useState('');
@@ -18,6 +18,7 @@ export default function ModifierAnnoncePage() {
   const [fetchDone, setFetchDone] = React.useState(false);
 
   React.useEffect(() => {
+    if (!authResolved) return;
     if (!estAuthentifie) { router.push('/connexion'); return; }
     if (!id) return;
     apiFetch<{ id: string; title: string; body: string; author: { id: string } }>(`/community/forum/topics/${id}`)
@@ -28,7 +29,7 @@ export default function ModifierAnnoncePage() {
         setFetchDone(true);
       })
       .catch(() => router.push('/annonces'));
-  }, [id, estAuthentifie, utilisateur, router]);
+  }, [id, authResolved, estAuthentifie, utilisateur, router]);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();

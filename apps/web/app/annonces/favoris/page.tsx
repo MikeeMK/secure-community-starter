@@ -29,11 +29,12 @@ function timeAgo(iso: string) {
 }
 
 export default function AnnoncesFavorisPage() {
-  const { estAuthentifie } = useAuth();
+  const { estAuthentifie, authResolved } = useAuth();
   const router = useRouter();
   const [favorites, setFavorites] = React.useState<Annonce[] | null>(null);
 
   React.useEffect(() => {
+    if (!authResolved) return;
     if (!estAuthentifie) {
       router.push('/connexion?redirect=/annonces/favoris');
       return;
@@ -41,7 +42,7 @@ export default function AnnoncesFavorisPage() {
     apiFetch<Annonce[]>('/community/forum/favorites')
       .then(setFavorites)
       .catch(() => setFavorites([]));
-  }, [estAuthentifie, router]);
+  }, [authResolved, estAuthentifie, router]);
 
   async function toggleFavorite(topicId: string) {
     await apiFetch(`/community/forum/topics/${topicId}/favorite`, { method: 'POST' }).catch(() => {});

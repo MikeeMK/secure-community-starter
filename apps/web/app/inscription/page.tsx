@@ -5,12 +5,16 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ApiFetchError, apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { OAuthButtons } from '../components/OAuthButtons';
 import { TurnstileWidget } from '../components/TurnstileWidget';
-import { triggerEmailConfirmation } from '../lib/supabaseClient';
+import {
+  isSupabaseConfigured,
+  signInWithOAuthProvider,
+  triggerEmailConfirmation,
+} from '../lib/supabaseClient';
 
 type RegisterResult = {
   user: { id: string; displayName: string; email: string; trustLevel: string };
-  accessToken: string;
   devUrl?: string;
 };
 
@@ -40,7 +44,7 @@ export default function PageInscription() {
     setErreur(null);
     setInfo(null);
     try {
-      const result = await apiFetch<RegisterResult>('/auth/register', {
+      const result = await apiFetch<RegisterResult>('/api/session/register', {
         method: 'POST',
         body: JSON.stringify({
           email,
@@ -49,7 +53,7 @@ export default function PageInscription() {
           turnstileToken: captchaToken ?? undefined,
         }),
       });
-      connecter(result.user, result.accessToken);
+      connecter(result.user);
       setCaptchaToken(null);
       setCaptchaReset((v) => v + 1);
       if (result.devUrl) {
@@ -71,6 +75,28 @@ export default function PageInscription() {
         setCaptchaReset((v) => v + 1);
       }
       setErreur(e instanceof Error ? e.message : 'Impossible de créer le compte');
+    } finally {
+      setChargement(false);
+    }
+  }
+
+  async function handleOAuthSignup(provider: 'google' | 'facebook') {
+    setChargement(true);
+    setErreur(null);
+    setInfo(null);
+
+    try {
+      const result = await signInWithOAuthProvider(provider, '/dashboard');
+      if (!result.ok) {
+        setErreur(result.message);
+        return;
+      }
+
+      if (result.url) {
+        window.location.assign(result.url);
+      }
+    } catch (e) {
+      setErreur(e instanceof Error ? e.message : 'Inscription sociale impossible');
     } finally {
       setChargement(false);
     }
@@ -104,6 +130,29 @@ export default function PageInscription() {
       )}
 
       <div className="card card-lg">
+        <OAuthButtons
+          disabled={chargement}
+          isConfigured={isSupabaseConfigured}
+          onSelect={handleOAuthSignup}
+        />
+
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            marginBottom: 18,
+            color: 'var(--text-dim)',
+            fontSize: 12,
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+          }}
+        >
+          <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+          <span>ou créez un compte avec e-mail</span>
+          <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+        </div>
+
         <form onSubmit={handleSubmit} className="stack">
           <div className="form-group">
             <label className="form-label" htmlFor="displayName">Nom d&apos;affichage</label>

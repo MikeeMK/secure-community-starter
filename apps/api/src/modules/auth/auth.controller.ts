@@ -30,6 +30,13 @@ const LoginDto = z.object({
   turnstileToken: z.string().optional(),
 });
 
+const OAuthLoginDto = z.object({
+  email: z.string().email(),
+  displayName: z.string().min(2).max(32),
+  provider: z.enum(['google', 'facebook']),
+  emailVerified: z.boolean().optional(),
+});
+
 @Controller('/auth')
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
@@ -105,6 +112,12 @@ export class AuthController {
   async ping(@Request() req: ExpressRequest) {
     const user = req.user as AuthUser;
     return this.auth.updateLastActive(user.id);
+  }
+
+  @Post('/oauth-login')
+  async oauthLogin(@Body() body: unknown) {
+    const dto = OAuthLoginDto.parse(body);
+    return this.auth.oauthLogin(dto);
   }
 
   /** Dev-only: login without password */

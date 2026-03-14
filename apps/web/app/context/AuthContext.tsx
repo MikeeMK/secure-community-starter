@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { apiFetch, AUTH_TOKEN_STORAGE_KEY } from '../lib/api';
+import { apiFetch } from '../lib/api';
 
 export type UtilisateurAuth = {
   id: string;
@@ -13,9 +13,10 @@ export type UtilisateurAuth = {
 
 interface AuthContextType {
   utilisateur: UtilisateurAuth | null;
-  connecter: (utilisateur: UtilisateurAuth, token: string) => void;
+  connecter: (utilisateur: UtilisateurAuth) => void;
   deconnecter: () => void;
   estAuthentifie: boolean;
+  authResolved: boolean;
 }
 
 const AuthContext = React.createContext<AuthContextType>({
@@ -23,51 +24,30 @@ const AuthContext = React.createContext<AuthContextType>({
   connecter: () => {},
   deconnecter: () => {},
   estAuthentifie: false,
+  authResolved: false,
 });
-
-const USER_STORAGE_KEY = 'community_user';
-const COOKIE_NAME = 'community_auth';
-const COOKIE_MAX_AGE = 60 * 60 * 24 * 7; // 7 jours
-
-function definirCookieAuth(token: string) {
-  document.cookie = `${COOKIE_NAME}=${token}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`;
-}
-
-function supprimerCookieAuth() {
-  document.cookie = `${COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax`;
-}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [utilisateur, setUtilisateur] = React.useState<UtilisateurAuth | null>(null);
+  const [authResolved, setAuthResolved] = React.useState(false);
 
   const clearAuth = React.useCallback(() => {
     setUtilisateur(null);
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(USER_STORAGE_KEY);
-      localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
-    }
-    supprimerCookieAuth();
   }, []);
 
   React.useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const token = localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
-    if (!token) {
-      clearAuth();
-      return;
-    }
-
     apiFetch<{ user: UtilisateurAuth }>('/auth/me')
       .then((result) => {
         setUtilisateur(result.user);
-        definirCookieAuth(token);
       })
       .catch(() => {
         clearAuth();
+      })
+      .finally(() => {
+        setAuthResolved(true);
       });
   }, [clearAuth]);
 
-  // Ping the server every 5 minutes to update lastActiveAt
   React.useEffect(() => {
     if (!utilisateur) return;
     apiFetch('/auth/ping', { method: 'POST' }).catch(() => {});
@@ -77,23 +57,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(id);
   }, [utilisateur]);
 
-  const connecter = React.useCallback((user: UtilisateurAuth, token: string) => {
+  const connecter = React.useCallback((user: UtilisateurAuth) => {
     setUtilisateur(user);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
-      localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
-    }
-    definirCookieAuth(token);
+    setAuthResolved(true);
   }, []);
 
   const deconnecter = React.useCallback(() => {
-    clearAuth();
-    window.location.href = '/';
+    fetch('/api/session/logout', { method: 'POST' })
+      .catch(() => {})
+      .finally(() => {
+        clearAuth();
+        setAuthResolved(true);
+        window.location.href = '/';
+      });
   }, [clearAuth]);
 
   const valeur = React.useMemo(
-    () => ({ utilisateur, connecter, deconnecter, estAuthentifie: utilisateur !== null }),
-    [utilisateur, connecter, deconnecter]
+    () => ({
+      utilisateur,
+      connecter,
+      deconnecter,
+      estAuthentifie: utilisateur !== null,
+      authResolved,
+    }),
+    [utilisateur, connecter, deconnecter, authResolved],
   );
 
   return <AuthContext.Provider value={valeur}>{children}</AuthContext.Provider>;

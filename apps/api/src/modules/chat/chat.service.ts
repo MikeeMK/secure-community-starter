@@ -77,10 +77,10 @@ export class ChatService {
       },
     });
 
-    return convs.map((c) => {
+    return convs.map((c: (typeof convs)[number]) => {
       const other = c.user1.id === userId ? c.user2 : c.user1;
       const lastMsg = c.messages[0] ?? null;
-      const unread = c.messages.filter((m) => !m.read && m.senderId !== userId).length;
+      const unread = c.messages.filter((m: (typeof c.messages)[number]) => !m.read && m.senderId !== userId).length;
       return { id: c.id, announcementId: c.announcementId, other, lastMsg, unread };
     });
   }
@@ -95,7 +95,7 @@ export class ChatService {
         },
       },
     });
-    return convs.reduce((sum, c) => sum + c.messages.length, 0);
+    return convs.reduce((sum: number, c: (typeof convs)[number]) => sum + c.messages.length, 0);
   }
 
   async getMessages(conversationId: string, userId: string) {

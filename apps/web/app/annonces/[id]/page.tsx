@@ -1,14 +1,15 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Avatar } from '../../components/Avatar';
 import { TrustBadge } from '../../components/Badge';
+import { RichContent } from '../../components/RichContent';
 import { UserProfileTrigger } from '../../components/UserProfileTrigger';
 import { apiFetch } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
-import { renderMarkdown } from '../../lib/markdown';
 import { copyToClipboard } from '../../lib/copy';
 
 type Annonce = {
@@ -224,11 +225,14 @@ export default function AnnonceDetailPage() {
           </div>
 
           {mainPhoto && (
-            <div style={{ marginBottom: 12, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)', cursor: 'pointer' }}>
-              <img
+            <div style={{ marginBottom: 12, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)', cursor: 'pointer', position: 'relative', minHeight: 460 }}>
+              <Image
                 src={mainPhoto}
                 alt={annonce.title}
-                style={{ width: '100%', maxHeight: 460, objectFit: 'cover', display: 'block' }}
+                fill
+                unoptimized
+                sizes="(max-width: 768px) 100vw, 900px"
+                style={{ objectFit: 'cover', display: 'block' }}
                 onClick={() => setLightbox(mainPhoto)}
               />
             </div>
@@ -248,27 +252,31 @@ export default function AnnonceDetailPage() {
                     padding: 0,
                     background: 'var(--surface-2)',
                     cursor: 'pointer',
+                    position: 'relative',
+                    height: 110,
                   }}
                 >
-                  <img src={p} alt={`Photo ${idx + 1}`} style={{ width: '100%', height: 110, objectFit: 'cover', display: 'block' }} />
+                  <Image
+                    src={p}
+                    alt={`Photo ${idx + 1}`}
+                    fill
+                    unoptimized
+                    sizes="120px"
+                    style={{ objectFit: 'cover', display: 'block' }}
+                  />
                 </button>
               ))}
             </div>
           )}
 
           {/* Body */}
-          <div
+          <RichContent
+            value={annonce.body}
             style={{
-              fontSize: 15,
-              lineHeight: 1.8,
-              color: 'var(--text)',
               paddingTop: 16,
               borderTop: '1px solid var(--border)',
               marginBottom: 24,
-              wordBreak: 'break-word',
-              whiteSpace: 'pre-wrap',
             }}
-            dangerouslySetInnerHTML={{ __html: renderMarkdown(annonce.body) }}
           />
 
           {/* Actions */}
@@ -314,10 +322,14 @@ export default function AnnonceDetailPage() {
             padding: 20,
           }}
         >
-          <img
+          <Image
             src={lightbox}
             alt="Aperçu"
-            style={{ maxWidth: '90vw', maxHeight: '90vh', borderRadius: 12, boxShadow: '0 20px 60px rgba(0,0,0,0.35)' }}
+            width={1600}
+            height={1200}
+            unoptimized
+            sizes="90vw"
+            style={{ maxWidth: '90vw', maxHeight: '90vh', width: 'auto', height: 'auto', borderRadius: 12, boxShadow: '0 20px 60px rgba(0,0,0,0.35)' }}
           />
         </div>
       )}

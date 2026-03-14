@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { Avatar } from '../components/Avatar';
 import { TrustBadge } from '../components/Badge';
@@ -8,6 +9,7 @@ import { UserProfileTrigger } from '../components/UserProfileTrigger';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { FRANCE_LOCATIONS, REGIONS } from '../lib/regions';
+import { toPlainTextPreview } from '../lib/markdown';
 
 type Annonce = {
   id: string;
@@ -240,6 +242,7 @@ export default function AnnoncesPage() {
                   <div style={{
                     width: '100%',
                     height: 170,
+                    position: 'relative',
                     borderRadius: 10,
                     overflow: 'hidden',
                     background: 'var(--surface-2)',
@@ -249,7 +252,14 @@ export default function AnnoncesPage() {
                     border: '1px solid var(--border)',
                   }}>
                     {a.photos?.[0] ? (
-                      <img src={a.photos[0]} alt={a.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <Image
+                        src={a.photos[0]}
+                        alt={a.title}
+                        fill
+                        unoptimized
+                        sizes="180px"
+                        style={{ objectFit: 'cover' }}
+                      />
                     ) : (
                       <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>Pas de photo</span>
                     )}
@@ -287,7 +297,7 @@ export default function AnnoncesPage() {
                       WebkitLineClamp: 1, WebkitBoxOrient: 'vertical',
                       margin: 0, wordBreak: 'break-word',
                     }}>
-                      {a.body}
+                      {toPlainTextPreview(a.body)}
                     </p>
                   </div>
 

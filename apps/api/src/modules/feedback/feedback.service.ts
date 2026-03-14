@@ -37,10 +37,10 @@ export class FeedbackService {
     // Notify all super_admins
     const snippet = content.replace(/^\[.*?\]\s*/, '').slice(0, 60);
     this.prisma.user.findMany({ where: { trustLevel: 'super_admin' }, select: { id: true } })
-      .then((admins) => {
+      .then((admins: { id: string }[]) => {
         if (!admins.length) return;
         return this.prisma.notification.createMany({
-          data: admins.map((a) => ({
+          data: admins.map((a: { id: string }) => ({
             userId: a.id,
             message: `Nouveau feedback de ${sender?.displayName ?? 'Membre'} : "${snippet}…"`,
             link: '/admin/moderation?tab=feedbacks',
@@ -90,10 +90,10 @@ export class FeedbackService {
       take: 100,
     });
 
-    const mapped = feedbacks.map((f) => ({
+    const mapped = feedbacks.map((f: (typeof feedbacks)[number]) => ({
       id: f.id,
       content: f.content,
-      summary: (f.aiAnalysis as any)?.summary ?? '',
+      summary: ((f.aiAnalysis as { summary?: string } | null) ?? null)?.summary ?? '',
     }));
 
     const suggested = await this.ai.suggestRelatedFeedbacks(title, content, mapped);

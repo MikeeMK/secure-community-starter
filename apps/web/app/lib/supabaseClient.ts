@@ -11,9 +11,34 @@ export const supabase =
         auth: {
           autoRefreshToken: false,
           persistSession: false,
+          detectSessionInUrl: true,
         },
       })
     : null;
+
+export const isSupabaseConfigured = !!supabase;
+
+export async function signInWithOAuthProvider(provider: 'google' | 'facebook', nextPath = '/dashboard') {
+  if (!supabase) {
+    return { ok: false as const, message: 'Supabase non configuré' };
+  }
+
+  const redirectTo =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`
+      : undefined;
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider,
+    options: { redirectTo },
+  });
+
+  if (error) {
+    return { ok: false as const, message: error.message };
+  }
+
+  return { ok: true as const, url: data.url };
+}
 
 export async function triggerEmailConfirmation(email: string, password: string) {
   if (!supabase) return { ok: false as const, skipped: true, message: 'Supabase non configuré' };

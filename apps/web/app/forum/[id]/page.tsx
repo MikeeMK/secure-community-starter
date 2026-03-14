@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Avatar } from '../../components/Avatar';
 import { TrustBadge, PlanPill } from '../../components/Badge';
+import { RichContent } from '../../components/RichContent';
 import { UserProfileTrigger } from '../../components/UserProfileTrigger';
 import { RichTextarea } from '../../components/RichTextarea';
 import { apiFetch } from '../../lib/api';
@@ -155,9 +156,7 @@ export default function PageSujet() {
           </div>
 
           <div style={{ paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-            <p style={{ color: 'var(--text)', fontSize: 15, lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>
-              {sujet.body}
-            </p>
+            <RichContent value={sujet.body} />
           </div>
 
           <div style={{ marginTop: 20 }}>
@@ -231,7 +230,11 @@ export default function PageSujet() {
                       </div>
                     )}
                   </div>
-                  <p className="post-body">{message.body}</p>
+                  <RichContent
+                    value={message.body}
+                    className="post-body"
+                    style={{ fontSize: 14, whiteSpace: 'normal' }}
+                  />
                   <div style={{ marginTop: 10 }}>
                     <BoutonJaime />
                   </div>
