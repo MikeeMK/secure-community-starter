@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import path from 'node:path';
+import * as path from 'path';
 import dotenv from 'dotenv';
 
 function loadIfExists(filePath: string, override: boolean) {
