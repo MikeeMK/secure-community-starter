@@ -13,8 +13,9 @@ function loadIfExists(filePath: string, override: boolean) {
 const apiRoot = process.cwd();
 const repoRoot = path.resolve(apiRoot, '..', '..');
 
-// Load monorepo root env first, then allow apps/api env files to override it.
+// Load monorepo and package env files as fallbacks only.
+// Real process environment variables from Render/Vercel must remain authoritative.
 loadIfExists(path.join(repoRoot, '.env.local'), false);
 loadIfExists(path.join(repoRoot, '.env'), false);
-loadIfExists(path.join(apiRoot, '.env.local'), true);
-loadIfExists(path.join(apiRoot, '.env'), true);
+loadIfExists(path.join(apiRoot, '.env.local'), false);
+loadIfExists(path.join(apiRoot, '.env'), false);

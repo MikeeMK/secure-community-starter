@@ -80,7 +80,8 @@ function setAuthCookie(response: NextResponse, token: string) {
 }
 
 function normalizeDisplayName(rawValue: unknown, email: string) {
-  const fallback = email.split('@')[0] ?? 'membre';
+  const emailLocalPart = email.split('@')[0] ?? 'membre';
+  const fallback = emailLocalPart.replace(/[^a-zA-Z0-9._-]+/g, '').trim() || 'membre';
   const candidate = typeof rawValue === 'string' ? rawValue.trim() : '';
   const collapsed = candidate.replace(/\s+/g, ' ');
   const normalized = (collapsed || fallback).slice(0, 32).trim();
@@ -89,7 +90,7 @@ function normalizeDisplayName(rawValue: unknown, email: string) {
     return normalized;
   }
 
-  return fallback.slice(0, 32);
+  return `Membre ${fallback}`.slice(0, 32).trim();
 }
 
 function normalizeProvider(value: unknown) {

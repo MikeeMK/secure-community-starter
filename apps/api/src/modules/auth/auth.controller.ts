@@ -116,8 +116,11 @@ export class AuthController {
 
   @Post('/oauth-login')
   async oauthLogin(@Body() body: unknown) {
-    const dto = OAuthLoginDto.parse(body);
-    return this.auth.oauthLogin(dto);
+    const result = OAuthLoginDto.safeParse(body);
+    if (!result.success) {
+      throw new BadRequestException(result.error.flatten().fieldErrors);
+    }
+    return this.auth.oauthLogin(result.data);
   }
 
   /** Dev-only: login without password */
