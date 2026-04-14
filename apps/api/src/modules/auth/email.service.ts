@@ -66,4 +66,13 @@ export class EmailService {
        <p>Ce lien expire dans 1 heure. Si vous n'avez pas fait cette demande, ignorez cet e-mail.</p>`,
     );
   }
+
+  async sendModerationNoticeEmail(to: string, subject: string, message: string) {
+    await this.send(
+      to,
+      subject,
+      `<p>${message}</p>
+       <p>Si vous pensez qu'il s'agit d'une erreur, vous pourrez contacter l'équipe quand ce canal sera ouvert.</p>`,
+    );
+  }
 }

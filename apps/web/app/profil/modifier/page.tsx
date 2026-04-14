@@ -111,25 +111,6 @@ function RadioGroup({ options, value, onChange }: { options: string[]; value: st
   );
 }
 
-function AdultLockedBanner() {
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px',
-      borderRadius: 'var(--radius-sm)', border: '1.5px dashed var(--border)',
-      background: 'var(--surface-2)', color: 'var(--text-muted)', fontSize: 14,
-    }}>
-      <span style={{ fontSize: 22 }}>🔒</span>
-      <div>
-        <div style={{ fontWeight: 700, marginBottom: 2 }}>Contenu adulte verrouillé</div>
-        <div style={{ lineHeight: 1.5 }}>
-          Ces options sont accessibles après vérification de votre âge.{' '}
-          <a href="/compte" style={{ color: 'var(--primary)', fontWeight: 600 }}>Vérifier mon âge →</a>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /* ── Preview component ── */
 function ProfilePreview({ profile, displayName, trustLevel }: {
   profile: ProfileData;
@@ -282,7 +263,6 @@ export default function ProfileEditPage() {
   const [activeTab, setActiveTab] = useState<Tab>('Identité');
   const [form, setForm] = useState<ProfileData>({ lookingFor: [], interactionType: [], interests: [] });
   const [savedProfile, setSavedProfile] = useState<ProfileData>({ lookingFor: [], interactionType: [], interests: [] });
-  const [interestInput, setInterestInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -320,13 +300,6 @@ export default function ProfileEditPage() {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  function addInterest(val: string) {
-    const trimmed = val.trim();
-    if (!trimmed || (form.interests ?? []).includes(trimmed)) return;
-    set('interests', [...(form.interests ?? []), trimmed]);
-    setInterestInput('');
-  }
-
   function removeInterest(val: string) {
     set('interests', (form.interests ?? []).filter((i) => i !== val));
   }
@@ -362,10 +335,9 @@ export default function ProfileEditPage() {
 
   if (!authResolved || !utilisateur || !fetchDone) return <div className="loading-text">Chargement…</div>;
 
-  const isAdultVerified = utilisateur.isAdultVerified ?? false;
-  const lookingForOptions = isAdultVerified ? [...LOOKING_FOR_BASE, ...LOOKING_FOR_ADULT] : [...LOOKING_FOR_BASE];
-  const interactionOptions = isAdultVerified ? [...INTERACTION_BASE, ...INTERACTION_ADULT] : INTERACTION_BASE;
-  const interestSuggestions = isAdultVerified ? [...INTEREST_SUGGESTIONS_BASE, ...INTEREST_SUGGESTIONS_ADULT] : INTEREST_SUGGESTIONS_BASE;
+  const lookingForOptions = [...LOOKING_FOR_BASE, ...LOOKING_FOR_ADULT];
+  const interactionOptions = [...INTERACTION_BASE, ...INTERACTION_ADULT];
+  const interestSuggestions = [...INTEREST_SUGGESTIONS_BASE, ...INTEREST_SUGGESTIONS_ADULT];
   const savedBioLength = (savedProfile.bio ?? '').length;
   const currentBioLength = (form.bio ?? '').length;
   const hasLegacyBioOverLimit = savedBioLength > PROFILE_BIO_MAX_LENGTH;
@@ -455,12 +427,10 @@ export default function ProfileEditPage() {
               <div className="form-group">
                 <label className="form-label">Je recherche</label>
                 <MultiSelect options={lookingForOptions} value={form.lookingFor ?? []} onChange={(v) => set('lookingFor', v)} />
-                {!isAdultVerified && <AdultLockedBanner />}
               </div>
               <div className="form-group">
                 <label className="form-label">Type d&apos;interaction</label>
                 <MultiSelect options={interactionOptions} value={form.interactionType ?? []} onChange={(v) => set('interactionType', v)} />
-                {!isAdultVerified && <AdultLockedBanner />}
               </div>
               <div className="form-group">
                 <label className="form-label">Tranche d&apos;âge recherchée</label>
@@ -492,23 +462,6 @@ export default function ProfileEditPage() {
               <div className="form-group">
                 <label className="form-label">Suggestions</label>
                 <MultiSelect options={interestSuggestions} value={form.interests ?? []} onChange={(v) => set('interests', v)} />
-                {!isAdultVerified && <AdultLockedBanner />}
-              </div>
-              <div className="form-group">
-                <label className="form-label">Ajouter un intérêt personnalisé</label>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <input
-                    className="form-input"
-                    type="text" placeholder="Ex : Photographie, Yoga…"
-                    value={interestInput}
-                    onChange={(e) => setInterestInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addInterest(interestInput); } }}
-                    style={{ flex: 1 }}
-                  />
-                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => addInterest(interestInput)}>
-                    Ajouter
-                  </button>
-                </div>
               </div>
               {(form.interests ?? []).length > 0 && (
                 <div className="form-group">

@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { apiFetch } from '../lib/api';
 
-type Notif = { id: string; message: string; link: string | null; read: boolean; createdAt: string };
+type Notif = { id: string; message: string; title?: string | null; content?: string | null; link: string | null; read: boolean; createdAt: string };
 type Msg = {
   id: string;
   other: { id: string; displayName: string };
@@ -116,11 +116,23 @@ export default function MessageriePage() {
               {!n.read && <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--primary)', marginTop: 6 }} />}
               <div style={{ flex: 1 }}>
                 {n.link ? (
-                  <Link href={n.link} style={{ color: 'var(--text)', fontWeight: 600, textDecoration: 'none', lineHeight: 1.5 }}>
-                    {n.message}
+                  <Link href={n.link} style={{ color: 'var(--text)', textDecoration: 'none', lineHeight: 1.5, display: 'grid', gap: 4 }}>
+                    <span style={{ fontWeight: 700 }}>{n.title ?? n.message}</span>
+                    {n.content && (
+                      <span style={{ fontWeight: 400, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                        {n.content}
+                      </span>
+                    )}
                   </Link>
                 ) : (
-                  <span style={{ color: 'var(--text)' }}>{n.message}</span>
+                  <span style={{ color: 'var(--text)', display: 'grid', gap: 4 }}>
+                    <span style={{ fontWeight: 700 }}>{n.title ?? n.message}</span>
+                    {n.content && (
+                      <span style={{ fontWeight: 400, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                        {n.content}
+                      </span>
+                    )}
+                  </span>
                 )}
                 <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>{timeAgo(n.createdAt)}</div>
               </div>

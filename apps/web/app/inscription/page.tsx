@@ -4,17 +4,18 @@ import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ApiFetchError, apiFetch } from '../lib/api';
-import { useAuth } from '../context/AuthContext';
 import { OAuthButtons } from '../components/OAuthButtons';
 import { TurnstileWidget } from '../components/TurnstileWidget';
 import {
   isSupabaseConfigured,
   signInWithOAuthProvider,
-  triggerEmailConfirmation,
 } from '../lib/supabaseClient';
 
 type RegisterResult = {
-  user: { id: string; displayName: string; email: string; trustLevel: string };
+  success: boolean;
+  email: string;
+  displayName: string;
+  verificationRequired: boolean;
   devUrl?: string;
 };
 
@@ -22,17 +23,14 @@ const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY
 
 export default function PageInscription() {
   const router = useRouter();
-  const { connecter } = useAuth();
 
   const [email, setEmail] = React.useState('');
   const [nomAffiche, setNomAffiche] = React.useState('');
   const [motDePasse, setMotDePasse] = React.useState('');
   const [chargement, setChargement] = React.useState(false);
   const [erreur, setErreur] = React.useState<string | null>(null);
-  const [info, setInfo] = React.useState<string | null>(null);
   const [captchaToken, setCaptchaToken] = React.useState<string | null>(null);
   const [captchaReset, setCaptchaReset] = React.useState(0);
-  const [devUrl, setDevUrl] = React.useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -42,7 +40,6 @@ export default function PageInscription() {
     }
     setChargement(true);
     setErreur(null);
-    setInfo(null);
     try {
       const result = await apiFetch<RegisterResult>('/api/session/register', {
         method: 'POST',
@@ -53,22 +50,16 @@ export default function PageInscription() {
           turnstileToken: captchaToken ?? undefined,
         }),
       });
-      connecter(result.user);
       setCaptchaToken(null);
       setCaptchaReset((v) => v + 1);
+      const search = new URLSearchParams({
+        email: result.email,
+        displayName: result.displayName,
+      });
       if (result.devUrl) {
-        setDevUrl(result.devUrl);
-      } else {
-        router.push('/dashboard');
+        search.set('devUrl', result.devUrl);
       }
-
-      // Déclenche l'e-mail de confirmation Supabase en parallèle
-      const supa = await triggerEmailConfirmation(email, motDePasse);
-      if (supa.ok) {
-        setInfo(supa.message);
-      } else if (!supa.skipped) {
-        setInfo(`Compte créé, mais l'envoi de l'e-mail a échoué : ${supa.message}`);
-      }
+      router.push(`/inscription/confirmation?${search.toString()}`);
     } catch (e) {
       if (e instanceof ApiFetchError && e.captchaRequired) {
         setCaptchaToken(null);
@@ -83,7 +74,6 @@ export default function PageInscription() {
   async function handleOAuthSignup(provider: 'google' | 'facebook') {
     setChargement(true);
     setErreur(null);
-    setInfo(null);
 
     try {
       const result = await signInWithOAuthProvider(provider, '/dashboard');
@@ -109,25 +99,6 @@ export default function PageInscription() {
         <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 6, letterSpacing: '-0.02em' }}>Créer un compte</h1>
         <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Rejoignez la communauté gratuitement</p>
       </div>
-
-      {devUrl && (
-        <div style={{ background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.4)', borderRadius: 'var(--radius)', padding: '16px', marginBottom: 20 }}>
-          <p style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: 'var(--warning)' }}>
-            🛠 Mode dev — SMTP non configuré
-          </p>
-          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10 }}>
-            Cliquez sur le lien ci-dessous pour vérifier votre e-mail :
-          </p>
-          <a href={devUrl} style={{ fontSize: 12, wordBreak: 'break-all', color: 'var(--primary)', textDecoration: 'underline' }}>
-            {devUrl}
-          </a>
-          <div style={{ marginTop: 12 }}>
-            <a href="/forum" style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)' }}>
-              Continuer sans vérifier →
-            </a>
-          </div>
-        </div>
-      )}
 
       <div className="card card-lg">
         <OAuthButtons
@@ -212,7 +183,6 @@ export default function PageInscription() {
           )}
 
           {erreur && <div className="error-text">{erreur}</div>}
-          {info && <div className="success-text">{info}</div>}
 
           <button
             type="submit"

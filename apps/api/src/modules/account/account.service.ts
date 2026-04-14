@@ -1,7 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { TokenService } from '../tokens/token.service';
-import { safeUserSelect } from '../auth/user.select';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const argon2: typeof import('argon2') = require('argon2');
 
@@ -9,10 +7,7 @@ const DISPLAY_NAME_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 @Injectable()
 export class AccountService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly tokens: TokenService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async getAccount(userId: string) {
     return this.prisma.user.findUnique({
@@ -21,9 +16,18 @@ export class AccountService {
         id: true,
         email: true,
         displayName: true,
+        avatarUrl: true,
         displayNameUpdatedAt: true,
-        isAdultVerified: true,
-        adultVerifiedAt: true,
+        accountStatus: true,
+        moderationReason: true,
+        suspendedUntil: true,
+        canReRegisterAfter: true,
+        chatRestrictedUntil: true,
+        chatRestrictionReason: true,
+        publishRestrictedUntil: true,
+        publishRestrictionReason: true,
+        replyRestrictedUntil: true,
+        replyRestrictionReason: true,
         settings: true,
       },
     });
@@ -51,6 +55,33 @@ export class AccountService {
       where: { id: userId },
       data: { displayName, displayNameUpdatedAt: new Date() },
       select: { id: true, displayName: true, displayNameUpdatedAt: true },
+    });
+  }
+
+  async updateAvatar(userId: string, avatarUrl: string | null) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { avatarUrl },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        avatarUrl: true,
+        trustLevel: true,
+        accountStatus: true,
+        moderationReason: true,
+        suspendedUntil: true,
+        canReRegisterAfter: true,
+        chatRestrictedUntil: true,
+        chatRestrictionReason: true,
+        publishRestrictedUntil: true,
+        publishRestrictionReason: true,
+        replyRestrictedUntil: true,
+        replyRestrictionReason: true,
+        emailVerifiedAt: true,
+        isAdultVerified: true,
+        createdAt: true,
+      },
     });
   }
 
@@ -83,25 +114,5 @@ export class AccountService {
       update: data,
       select: { allowChat: true, hideFromSuggestions: true, allowNotifLikes: true },
     });
-  }
-
-  async markCurrentUserAsAdultVerified(userId: string) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new BadRequestException('Action indisponible en production');
-    }
-
-    const user = await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        isAdultVerified: true,
-        adultVerifiedAt: new Date(),
-        verificationProvider: 'dev_override',
-        verificationReference: 'current-user-self-serve',
-      },
-      select: safeUserSelect,
-    });
-
-    this.tokens.awardMilestone(userId, 'adult_verified').catch(() => {});
-    return { user };
   }
 }

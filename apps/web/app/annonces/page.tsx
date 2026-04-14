@@ -66,7 +66,6 @@ export default function AnnoncesPage() {
   const [selectedDept, setSelectedDept] = React.useState('');
   const [debouncedSearch, setDebouncedSearch] = React.useState('');
 
-  const isAdultVerified = utilisateur?.isAdultVerified ?? false;
   const isLoggedIn = !!utilisateur;
 
   // Departments for selected region
@@ -91,8 +90,6 @@ export default function AnnoncesPage() {
     const url = `/community/forum/annonces${params.toString() ? `?${params}` : ''}`;
     apiFetch<Annonce[]>(url).then(setAnnonces).catch(() => setAnnonces([]));
   }, [activeCategory, effectiveRegion, debouncedSearch]);
-
-  const showRencontreGate = activeCategory === 'Rencontre adulte' && !isAdultVerified;
 
   async function toggleFavorite(e: React.MouseEvent, id: string) {
     e.preventDefault();
@@ -146,8 +143,8 @@ export default function AnnoncesPage() {
           style={{ height: 46, fontSize: 15, minWidth: 160 }}
         >
           {CATEGORIES.map((cat) => (
-            <option key={cat} value={cat} disabled={cat === 'Rencontre adulte' && !isAdultVerified}>
-              {cat === 'Rencontre adulte' && !isAdultVerified ? '🔒 Rencontre adulte' : cat}
+            <option key={cat} value={cat}>
+              {cat}
             </option>
           ))}
         </select>
@@ -206,21 +203,9 @@ export default function AnnoncesPage() {
         </div>
       )}
 
-      {/* Rencontre gate */}
-      {showRencontreGate && (
-        <div className="card" style={{ textAlign: 'center', padding: '64px 32px', border: '2px dashed #ef444440', background: 'rgba(239,68,68,0.04)' }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
-          <div style={{ fontWeight: 800, fontSize: 22, marginBottom: 10 }}>Accès réservé</div>
-          <p style={{ fontSize: 16, color: 'var(--text-muted)', maxWidth: 420, margin: '0 auto 24px' }}>
-            La catégorie <strong>Rencontre adulte</strong> est réservée aux membres ayant complété la vérification d'âge.
-          </p>
-          <Link href="/compte" className="btn btn-primary">Vérifier mon âge</Link>
-        </div>
-      )}
+      {!annonces && <p className="loading-text" style={{ fontSize: 16 }}>Chargement…</p>}
 
-      {!showRencontreGate && !annonces && <p className="loading-text" style={{ fontSize: 16 }}>Chargement…</p>}
-
-      {!showRencontreGate && annonces && annonces.length === 0 && (
+      {annonces && annonces.length === 0 && (
         <div className="card" style={{ textAlign: 'center', padding: '64px 32px' }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>📢</div>
           <p style={{ color: 'var(--text-muted)', marginBottom: 20, fontSize: 16 }}>Aucune annonce pour ces critères.</p>
@@ -228,7 +213,7 @@ export default function AnnoncesPage() {
         </div>
       )}
 
-      {!showRencontreGate && annonces && annonces.length > 0 && (
+      {annonces && annonces.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {annonces.map((a) => (
             <Link key={a.id} href={`/annonces/${a.id}`} style={{ textDecoration: 'none' }}>

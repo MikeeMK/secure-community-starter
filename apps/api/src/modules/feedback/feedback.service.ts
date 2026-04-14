@@ -42,6 +42,8 @@ export class FeedbackService {
         return this.prisma.notification.createMany({
           data: admins.map((a: { id: string }) => ({
             userId: a.id,
+            title: 'Nouveau feedback reçu',
+            content: `${sender?.displayName ?? 'Un membre'} a envoyé un nouveau feedback. Extrait: "${snippet}…"`,
             message: `Nouveau feedback de ${sender?.displayName ?? 'Membre'} : "${snippet}…"`,
             link: '/admin/moderation?tab=feedbacks',
           })),
@@ -75,11 +77,58 @@ export class FeedbackService {
         id: true,
         content: true,
         aiAnalysis: true,
+        status: true,
+        internalNote: true,
+        adminResponse: true,
         createdAt: true,
+        updatedAt: true,
+        reviewedAt: true,
+        reviewedBy: { select: { id: true, displayName: true } },
         user: { select: { id: true, displayName: true } },
         newsFeedbacks: { select: { newsId: true } },
       },
     });
+  }
+
+  async review(
+    id: string,
+    reviewerId: string,
+    input: { status: 'NEW' | 'IN_REVIEW' | 'PLANNED' | 'RESOLVED' | 'REJECTED'; internalNote?: string; adminResponse?: string },
+  ) {
+    const updated = await this.prisma.feedback.update({
+      where: { id },
+      data: {
+        status: input.status,
+        internalNote: input.internalNote?.trim() || null,
+        adminResponse: input.adminResponse?.trim() || null,
+        reviewedAt: new Date(),
+        reviewedById: reviewerId,
+      },
+      select: {
+        id: true,
+        status: true,
+        internalNote: true,
+        adminResponse: true,
+        reviewedAt: true,
+        reviewedBy: { select: { id: true, displayName: true } },
+      },
+    });
+
+    await this.prisma.moderationAction.create({
+      data: {
+        actorId: reviewerId,
+        actionType: `FEEDBACK_${input.status}`,
+        targetType: 'FEEDBACK',
+        targetId: id,
+        reason: input.internalNote?.trim() || input.adminResponse?.trim() || 'Mise à jour du feedback.',
+        metadata: {
+          status: input.status,
+          hasAdminResponse: !!input.adminResponse?.trim(),
+        },
+      },
+    });
+
+    return updated;
   }
 
   async getSuggestionsForNews(newsId: string, title: string, content: string) {

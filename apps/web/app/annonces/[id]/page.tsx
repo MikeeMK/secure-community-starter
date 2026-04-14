@@ -10,7 +10,6 @@ import { RichContent } from '../../components/RichContent';
 import { UserProfileTrigger } from '../../components/UserProfileTrigger';
 import { apiFetch } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
-import { copyToClipboard } from '../../lib/copy';
 
 type Annonce = {
   id: string;
@@ -23,6 +22,13 @@ type Annonce = {
   _count: { likes: number };
   liked: boolean;
 };
+
+const REPORT_REASONS = [
+  'Contenu inapproprié',
+  'Spam',
+  'Ne respecte pas le règlement',
+  'Autre',
+] as const;
 
 function formaterDate(iso: string) {
   return new Date(iso).toLocaleString('fr-FR', {
@@ -47,6 +53,19 @@ export default function AnnonceDetailPage() {
   const [reportNote, setReportNote] = React.useState('');
   const [reportSent, setReportSent] = React.useState(false);
   const [reporting, setReporting] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!menuOpen) return undefined;
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setMenuOpen(false);
+      }
+    }
+
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [menuOpen]);
 
   React.useEffect(() => {
     if (!id) return;
@@ -83,14 +102,11 @@ export default function AnnonceDetailPage() {
       // Open chat widget with this conversation
       window.dispatchEvent(new CustomEvent('open-chat', { detail: { conversationId: res.conversationId } }));
       setChatStarted(true);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Impossible d’ouvrir la conversation pour le moment.');
     } finally {
       setChatLoading(false);
     }
-  }
-
-  async function handleCopyRef() {
-    await copyToClipboard(annonce?.id ?? '');
-    setMenuOpen(false);
   }
 
   async function handleReport() {
@@ -117,13 +133,13 @@ export default function AnnonceDetailPage() {
 
   if (erreur) return (
     <div style={{ padding: 24 }}>
-      <Link href="/dashboard" className="btn btn-ghost btn-sm" style={{ marginBottom: 20 }}>&larr; Retour au dashboard</Link>
+      <Link href="/annonces" className="btn btn-ghost btn-sm" style={{ marginBottom: 20 }}>&larr; Retour aux annonces</Link>
       <div className="error-text">{erreur}</div>
     </div>
   );
   if (!annonce) return (
     <div style={{ padding: 24 }}>
-      <Link href="/dashboard" className="btn btn-ghost btn-sm" style={{ marginBottom: 20 }}>&larr; Retour au dashboard</Link>
+      <Link href="/annonces" className="btn btn-ghost btn-sm" style={{ marginBottom: 20 }}>&larr; Retour aux annonces</Link>
       <p className="loading-text">Chargement…</p>
     </div>
   );
@@ -134,96 +150,11 @@ export default function AnnonceDetailPage() {
   return (
     <>
       <div style={{ maxWidth: 760, margin: '0 auto', padding: '32px 16px' }}>
-        <Link href="/dashboard" className="btn btn-ghost btn-sm" style={{ marginBottom: 24, display: 'inline-flex' }}>
-          &larr; Retour au dashboard
+        <Link href="/annonces" className="btn btn-ghost btn-sm" style={{ marginBottom: 24, display: 'inline-flex' }}>
+          &larr; Retour aux annonces
         </Link>
 
         <div className="card">
-          {/* Author row */}
-          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 20 }}>
-            <Link href={`/profil/${annonce.author.id}`}>
-              <Avatar name={annonce.author.displayName} size="md" />
-            </Link>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 4 }}>
-                <UserProfileTrigger
-                  userId={annonce.author.id}
-                  displayName={annonce.author.displayName}
-                  style={{ fontWeight: 700, color: 'var(--text)', fontSize: 14 }}
-                >
-                  <span>{annonce.author.displayName}</span>
-                </UserProfileTrigger>
-                <TrustBadge level={annonce.author.trustLevel} />
-                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{formaterDate(annonce.createdAt)}</span>
-              </div>
-              <h1 style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.3, letterSpacing: '-0.02em' }}>
-                {annonce.title}
-              </h1>
-            </div>
-            <div style={{ marginLeft: 'auto', position: 'relative' }}>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                onClick={() => setMenuOpen((v) => !v)}
-                aria-label="Actions"
-                style={{ width: 32, height: 32, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-              >
-                ⋮
-              </button>
-              {menuOpen && (
-                <div className="card" style={{ position: 'absolute', right: 0, top: 38, zIndex: 30, padding: 10, width: 220 }}>
-                  <button className="btn btn-ghost btn-sm" style={{ width: '100%', justifyContent: 'flex-start' }} onClick={handleCopyRef}>
-                    Copier la référence
-                  </button>
-                  <div style={{ borderTop: '1px solid var(--border)', margin: '8px 0' }} />
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>Signaler</div>
-                  <select
-                    className="form-input"
-                    value={reportReason}
-                    onChange={(e) => setReportReason(e.target.value)}
-                    style={{ marginBottom: 8 }}
-                  >
-                    <option>Contenu inapproprié</option>
-                    <option>Spam</option>
-                    <option>Ne respecte pas le règlement</option>
-                    <option>Autre</option>
-                  </select>
-                  {reportReason === 'Autre' && (
-                    <textarea
-                      className="form-input"
-                      rows={2}
-                      placeholder="Motif..."
-                      value={reportNote}
-                      onChange={(e) => setReportNote(e.target.value)}
-                      style={{ marginBottom: 8 }}
-                    />
-                  )}
-                  <button className="btn btn-secondary btn-sm" style={{ width: '100%', marginBottom: 6 }} onClick={handleReport}>
-                    Envoyer le signalement
-                  </button>
-                  {(utilisateur?.trustLevel === 'moderator' || utilisateur?.trustLevel === 'super_admin') && (
-                    <button
-                      className="btn btn-danger btn-sm"
-                      style={{ width: '100%' }}
-                      onClick={async () => {
-                        if (!confirm('Supprimer cette annonce ?')) return;
-                        await apiFetch(`/community/forum/topics/${annonce.id}`, { method: 'DELETE' }).catch(() => {});
-                        window.location.href = '/annonces';
-                      }}
-                    >
-                      Supprimer l'annonce (staff)
-                    </button>
-                  )}
-                </div>
-              )}
-              {reportSent && (
-                <div style={{ marginTop: 6, fontSize: 12, color: 'var(--primary)' }}>
-                  Signalement envoyé, merci.
-                </div>
-              )}
-            </div>
-          </div>
-
           {mainPhoto && (
             <div style={{ marginBottom: 12, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)', cursor: 'pointer', position: 'relative', minHeight: 460 }}>
               <Image
@@ -268,6 +199,56 @@ export default function AnnonceDetailPage() {
               ))}
             </div>
           )}
+
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 20 }}>
+            <Link href={`/profil/${annonce.author.id}`}>
+              <Avatar name={annonce.author.displayName} size="md" />
+            </Link>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 6 }}>
+                <UserProfileTrigger
+                  userId={annonce.author.id}
+                  displayName={annonce.author.displayName}
+                  style={{ fontWeight: 700, color: 'var(--text)', fontSize: 14 }}
+                >
+                  <span>{annonce.author.displayName}</span>
+                </UserProfileTrigger>
+                <TrustBadge level={annonce.author.trustLevel} />
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{formaterDate(annonce.createdAt)}</span>
+              </div>
+              <h1 style={{ fontSize: 24, fontWeight: 900, lineHeight: 1.25, letterSpacing: '-0.03em', margin: 0 }}>
+                {annonce.title}
+              </h1>
+            </div>
+            <div style={{ marginLeft: 'auto', position: 'relative' }}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setMenuOpen((v) => !v)}
+                aria-label="Actions"
+                aria-expanded={menuOpen}
+                style={{
+                  minHeight: 38,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  padding: '0 14px',
+                  borderRadius: 999,
+                  fontWeight: 700,
+                  boxShadow: menuOpen ? '0 0 0 1px rgba(107, 244, 218, 0.25), 0 12px 28px rgba(0, 0, 0, 0.22)' : undefined,
+                }}
+              >
+                <span style={{ fontSize: 16, lineHeight: 1 }}>⋯</span>
+                <span>Actions</span>
+              </button>
+              {reportSent && (
+                <div style={{ marginTop: 6, fontSize: 12, color: 'var(--primary)' }}>
+                  Signalement envoyé, merci.
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Body */}
           <RichContent
@@ -331,6 +312,227 @@ export default function AnnonceDetailPage() {
             sizes="90vw"
             style={{ maxWidth: '90vw', maxHeight: '90vh', width: 'auto', height: 'auto', borderRadius: 12, boxShadow: '0 20px 60px rgba(0,0,0,0.35)' }}
           />
+        </div>
+      )}
+
+      {menuOpen && (
+        <div
+          onClick={() => setMenuOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1200,
+            background: 'rgba(7, 11, 18, 0.76)',
+            backdropFilter: 'blur(10px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+        >
+          <div
+            className="card"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Actions sur l'annonce"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 'min(100%, 560px)',
+              padding: 18,
+              borderRadius: 24,
+              boxShadow: '0 32px 90px rgba(0, 0, 0, 0.4)',
+            }}
+          >
+            <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 8 }}>
+                  Actions
+                </div>
+                <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.15, color: 'var(--text)' }}>
+                  Gérer cette annonce
+                </div>
+                <div style={{ marginTop: 6, fontSize: 14, lineHeight: 1.6, color: 'var(--text-muted)' }}>
+                  Choisissez une action rapide, ou signalez cette annonce si elle ne respecte pas les règles de la communauté.
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setMenuOpen(false)}
+                aria-label="Fermer"
+                style={{ width: 36, height: 36, flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 999 }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {!isOwn && (
+              <div
+                style={{
+                  display: 'grid',
+                  gap: 12,
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                  marginBottom: 18,
+                }}
+              >
+                <Link
+                  href={`/profil/${annonce.author.id}`}
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setMenuOpen(false)}
+                  style={{
+                    minWidth: 0,
+                    minHeight: 74,
+                    alignItems: 'flex-start',
+                    justifyContent: 'flex-start',
+                    padding: '16px 18px',
+                    borderRadius: 18,
+                    border: '1px solid var(--border)',
+                    background: 'linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01))',
+                    whiteSpace: 'normal',
+                    textAlign: 'left',
+                  }}
+                >
+                  <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4, minWidth: 0 }}>
+                    <span style={{ fontSize: 15, fontWeight: 700 }}>Voir le profil de l’auteur</span>
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'left', lineHeight: 1.5 }}>
+                      Ouvrez directement le profil de ce membre pour voir ses infos et ses autres actions.
+                    </span>
+                  </span>
+                </Link>
+
+                {!isOwn && (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    void handleChat();
+                  }}
+                  disabled={!estAuthentifie || chatLoading}
+                  style={{
+                    minWidth: 0,
+                    minHeight: 74,
+                    alignItems: 'flex-start',
+                    justifyContent: 'flex-start',
+                    padding: '16px 18px',
+                    borderRadius: 18,
+                    border: '1px solid rgba(107, 244, 218, 0.2)',
+                    background: 'linear-gradient(180deg, rgba(107, 244, 218, 0.12), rgba(107, 244, 218, 0.04))',
+                    whiteSpace: 'normal',
+                    textAlign: 'left',
+                  }}
+                >
+                  <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4, minWidth: 0 }}>
+                    <span style={{ fontSize: 15, fontWeight: 700 }}>
+                      {chatStarted ? 'Conversation ouverte' : 'Envoyer un message'}
+                    </span>
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'left', whiteSpace: 'normal', lineHeight: 1.5 }}>
+                      {estAuthentifie ? 'Contactez directement l’auteur depuis la messagerie.' : 'Connectez-vous pour écrire à l’auteur.'}
+                    </span>
+                  </span>
+                </button>
+                )}
+              </div>
+            )}
+
+            <div
+              style={{
+                borderRadius: 20,
+                padding: 16,
+                border: '1px solid rgba(255, 180, 106, 0.2)',
+                background: 'linear-gradient(180deg, rgba(255, 180, 106, 0.08), rgba(255, 180, 106, 0.03))',
+                marginBottom: 14,
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', marginBottom: 12 }}>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)', marginBottom: 4 }}>
+                    Signaler cette annonce
+                  </div>
+                  <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--text-muted)' }}>
+                    Utilisez ce formulaire uniquement si le contenu pose un vrai problème: spam, non-respect des règles, contenu inapproprié, ou autre motif sérieux.
+                  </div>
+                </div>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgb(255, 190, 122)' }}>
+                  Modération
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                {REPORT_REASONS.map((reason) => {
+                  const active = reportReason === reason;
+                  return (
+                    <button
+                      key={reason}
+                      type="button"
+                      onClick={() => setReportReason(reason)}
+                      style={{
+                        borderRadius: 999,
+                        padding: '10px 14px',
+                        border: active ? '1px solid rgba(255, 190, 122, 0.5)' : '1px solid var(--border)',
+                        background: active ? 'rgba(255, 190, 122, 0.14)' : 'var(--surface-2)',
+                        color: active ? 'rgb(255, 216, 166)' : 'var(--text)',
+                        fontSize: 13,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {reason}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {reportReason === 'Autre' && (
+                <textarea
+                  className="form-input"
+                  rows={3}
+                  placeholder="Expliquez brièvement le problème constaté."
+                  value={reportNote}
+                  onChange={(e) => setReportNote(e.target.value)}
+                  style={{ marginBottom: 12, resize: 'vertical' }}
+                />
+              )}
+
+              <button
+                className="btn btn-secondary btn-sm"
+                style={{ width: '100%', minHeight: 46 }}
+                onClick={handleReport}
+                disabled={reporting || (reportReason === 'Autre' && !reportNote.trim())}
+              >
+                {reporting ? 'Envoi du signalement…' : 'Envoyer le signalement'}
+              </button>
+            </div>
+
+            {(utilisateur?.trustLevel === 'moderator' || utilisateur?.trustLevel === 'super_admin') && (
+              <div
+                style={{
+                  borderRadius: 18,
+                  padding: 14,
+                  border: '1px solid rgba(255, 102, 102, 0.25)',
+                  background: 'linear-gradient(180deg, rgba(255, 102, 102, 0.1), rgba(255, 102, 102, 0.04))',
+                }}
+              >
+                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgb(255, 151, 151)', marginBottom: 8 }}>
+                  Action staff
+                </div>
+                <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--text-muted)', marginBottom: 12 }}>
+                  Cette action retire immédiatement l’annonce du site. Utilisez-la seulement si une intervention staff est nécessaire.
+                </div>
+                <button
+                  className="btn btn-danger btn-sm"
+                  style={{ width: '100%', minHeight: 44 }}
+                  onClick={async () => {
+                    if (!confirm('Supprimer cette annonce ?')) return;
+                    await apiFetch(`/community/forum/topics/${annonce.id}`, { method: 'DELETE' }).catch(() => {});
+                    window.location.href = '/annonces';
+                  }}
+                >
+                  Supprimer l'annonce
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </>

@@ -24,6 +24,22 @@ export class AccountController {
     return this.account.updateDisplayName(user.id, displayName);
   }
 
+  @Patch('/avatar')
+  async updateAvatar(@Body() body: unknown, @Request() req: ExpressRequest) {
+    const dto = z.object({
+      avatarUrl: z
+        .string()
+        .max(5_000_000)
+        .refine(
+          (value) => value.startsWith('data:image/') || value.startsWith('https://') || value.startsWith('http://'),
+          'Format d avatar invalide',
+        )
+        .nullable(),
+    }).parse(body);
+    const user = req.user as AuthUser;
+    return this.account.updateAvatar(user.id, dto.avatarUrl);
+  }
+
   @Patch('/password')
   async changePassword(@Body() body: unknown, @Request() req: ExpressRequest) {
     const { newPassword } = z.object({
@@ -48,11 +64,5 @@ export class AccountController {
     }).parse(body);
     const user = req.user as AuthUser;
     return this.account.updateSettings(user.id, dto);
-  }
-
-  @Patch('/adult-verification/dev-override')
-  async markCurrentUserAsAdultVerified(@Request() req: ExpressRequest) {
-    const user = req.user as AuthUser;
-    return this.account.markCurrentUserAsAdultVerified(user.id);
   }
 }

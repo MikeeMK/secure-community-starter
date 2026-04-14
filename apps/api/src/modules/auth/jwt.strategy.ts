@@ -31,6 +31,33 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!user) {
       throw new UnauthorizedException();
     }
+
+    if (user.accountStatus === 'SUSPENDED') {
+      if (user.suspendedUntil && user.suspendedUntil <= new Date()) {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            accountStatus: 'ACTIVE',
+            moderationReason: null,
+            suspendedUntil: null,
+            moderatedAt: null,
+          },
+        });
+        return {
+          ...user,
+          accountStatus: 'ACTIVE',
+          moderationReason: null,
+          suspendedUntil: null,
+          moderatedAt: null,
+        };
+      }
+      throw new UnauthorizedException('Account suspended');
+    }
+
+    if (user.accountStatus === 'BANNED' || user.accountStatus === 'DELETED') {
+      throw new UnauthorizedException('Account unavailable');
+    }
+
     return user;
   }
 }

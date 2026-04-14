@@ -44,6 +44,8 @@ export class NewsService {
         data: userIds.map((userId) => ({
           userId,
           newsId: id,
+          title: 'Votre retour a abouti',
+          content: `L’équipe Velentra a publié "${news.title}" en lien avec un retour que vous aviez envoyé.`,
           message: `Votre retour a été entendu ! "${news.title}" vient d'être publié.`,
           link: `/changelog#${id}`,
         })),

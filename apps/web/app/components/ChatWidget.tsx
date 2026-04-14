@@ -139,6 +139,9 @@ export function ChatWidget() {
         body: JSON.stringify({ content }),
       });
       setMessages((prev) => [...prev, msg]);
+    } catch (e) {
+      setInput(content);
+      window.alert(e instanceof Error ? e.message : 'Envoi impossible pour le moment.');
     } finally {
       setSending(false);
     }

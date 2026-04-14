@@ -27,9 +27,22 @@ export class ForumService {
     private readonly tokens: TokenService,
   ) {}
 
+  private async enforcePublishRestriction(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        publishRestrictedUntil: true,
+        publishRestrictionReason: true,
+        replyRestrictedUntil: true,
+        replyRestrictionReason: true,
+      },
+    });
+    return user;
+  }
+
   async listTopics() {
     const topics = await this.prisma.forumTopic.findMany({
-      where: { isAnnouncement: false },
+      where: { isAnnouncement: false, hiddenAt: null, author: { accountStatus: { not: 'DELETED' } } },
       orderBy: { createdAt: 'desc' },
       take: 50,
       select: {
@@ -48,7 +61,7 @@ export class ForumService {
 
   async listAnnouncements(opts: { category?: string; region?: string; search?: string; userId?: string }) {
     const { category, region, search, userId } = opts;
-    const where: Record<string, unknown> = { isAnnouncement: true };
+    const where: Record<string, unknown> = { isAnnouncement: true, hiddenAt: null, author: { accountStatus: { not: 'DELETED' } } };
     if (category) where['category'] = category;
     if (region) where['region'] = region;
     if (search) {
@@ -84,7 +97,7 @@ export class ForumService {
 
   async listMyAnnouncements(userId: string) {
     const topics = await this.prisma.forumTopic.findMany({
-      where: { authorId: userId, isAnnouncement: true },
+      where: { authorId: userId, isAnnouncement: true, hiddenAt: null },
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
@@ -104,8 +117,8 @@ export class ForumService {
   }
 
   async getTopic(id: string) {
-    const topic = await this.prisma.forumTopic.findUnique({
-      where: { id },
+    const topic = await this.prisma.forumTopic.findFirst({
+      where: { id, hiddenAt: null, author: { accountStatus: { not: 'DELETED' } } },
       select: {
         id: true,
         title: true,
@@ -118,6 +131,7 @@ export class ForumService {
         group: { select: { id: true, name: true } },
         _count: { select: { likes: true } },
         posts: {
+          where: { hiddenAt: null, author: { accountStatus: { not: 'DELETED' } } },
           orderBy: { createdAt: 'asc' },
           select: { id: true, body: true, createdAt: true, author: { select: { id: true, displayName: true, trustLevel: true } } },
         },
@@ -141,7 +155,7 @@ export class ForumService {
 
   async listFavorites(userId: string) {
     const favs = await this.prisma.announcementFavorite.findMany({
-      where: { userId },
+      where: { userId, topic: { hiddenAt: null, author: { accountStatus: { not: 'DELETED' } } } },
       orderBy: { createdAt: 'desc' },
       select: {
         topic: {
@@ -164,7 +178,7 @@ export class ForumService {
   async listFavoritesReceived(authorId: string) {
     const favs = await this.prisma.announcementFavorite.findMany({
       where: {
-        topic: { authorId, isAnnouncement: true },
+        topic: { authorId, isAnnouncement: true, hiddenAt: null },
       },
       orderBy: { createdAt: 'desc' },
       select: {
@@ -185,16 +199,20 @@ export class ForumService {
     isAnnouncement?: boolean;
     category?: string;
     region?: string;
-    isAdultVerified?: boolean;
     photos?: string[];
   }) {
     const category = normalizeCategory(input.category ?? 'Autre');
-    if (category === 'Rencontre adulte' && !input.isAdultVerified) {
-      throw new BadRequestException('Vous devez être vérifié·e adulte pour poster dans la catégorie Rencontre adulte.');
-    }
 
     // Gate announcements behind profile completion >= 60%
     if (input.isAnnouncement) {
+      const restriction = await this.enforcePublishRestriction(input.authorId);
+      if (restriction?.publishRestrictedUntil && restriction.publishRestrictedUntil > new Date()) {
+        throw new BadRequestException(
+          restriction.publishRestrictionReason
+            ? `Publication bloquée: ${restriction.publishRestrictionReason}`
+            : 'Vous ne pouvez pas publier pour le moment.',
+        );
+      }
       const user = await this.prisma.user.findUnique({
         where: { id: input.authorId },
         select: {
@@ -202,7 +220,10 @@ export class ForumService {
           profile: { select: { age: true, city: true, gender: true, orientation: true, bio: true, interests: true, lookingFor: true } },
         },
       });
-      const pct = calcProfileCompletion(user?.emailVerifiedAt ?? null, user?.profile as Record<string, unknown> | null);
+      const completionUnlocked = await this.tokens.hasProfileCompletionUnlocked(input.authorId);
+      const pct = completionUnlocked
+        ? 100
+        : calcProfileCompletion(user?.emailVerifiedAt ?? null, user?.profile as Record<string, unknown> | null);
       if (pct < 60) {
         throw new BadRequestException(
           `Votre profil doit être complété à au moins 60% pour publier une annonce (actuellement ${pct}%). Complétez votre profil et réessayez.`,
@@ -288,13 +309,24 @@ export class ForumService {
   async createPost(input: { topicId: string; authorId: string; body: string }) {
     const topic = await this.prisma.forumTopic.findUnique({
       where: { id: input.topicId },
-      select: { closed: true, authorId: true },
+      select: { closed: true, authorId: true, hiddenAt: true },
     });
     const user = await this.prisma.user.findUnique({
       where: { id: input.authorId },
       select: { trustLevel: true },
     });
     const staff = user?.trustLevel ? ['moderator', 'super_admin'].includes(user.trustLevel) : false;
+    const restriction = await this.enforcePublishRestriction(input.authorId);
+    if (topic?.hiddenAt) {
+      throw new ForbiddenException('Ce sujet est masqué.');
+    }
+    if (restriction?.replyRestrictedUntil && restriction.replyRestrictedUntil > new Date()) {
+      throw new ForbiddenException(
+        restriction.replyRestrictionReason
+          ? `Réponses bloquées: ${restriction.replyRestrictionReason}`
+          : 'Vous ne pouvez pas répondre pour le moment.',
+      );
+    }
     if (topic?.closed && !staff && topic.authorId !== input.authorId) {
       throw new ForbiddenException('Sujet fermé.');
     }
@@ -346,9 +378,18 @@ export class ForumService {
   async deleteTopic(id: string, userId: string, trustLevel: string) {
     const topic = await this.prisma.forumTopic.findUnique({
       where: { id },
-      select: { authorId: true },
+      select: { authorId: true, isAnnouncement: true },
     });
-    if (!topic || (topic.authorId !== userId && !isStaff(trustLevel))) throw new ForbiddenException();
+    if (!topic) throw new ForbiddenException();
+
+    const staff = isStaff(trustLevel);
+    const canDelete = topic.isAnnouncement
+      ? staff
+      : (topic.authorId === userId || staff);
+
+    if (!canDelete) {
+      throw new ForbiddenException();
+    }
 
     await this.prisma.$transaction([
       this.prisma.forumTopicLike.deleteMany({ where: { topicId: id } }),

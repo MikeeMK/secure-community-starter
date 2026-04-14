@@ -1,19 +1,50 @@
 'use client';
 
 import React from 'react';
+import { compressImageFile } from '../../lib/client-image';
 
 type Props = {
   photos: File[];
+  primaryIndex: number;
   onChange: (files: File[]) => void;
+  onPrimaryChange: (index: number) => void;
 };
 
-export function PhotoUploader({ photos, onChange }: Props) {
+export function PhotoUploader({ photos, primaryIndex, onChange, onPrimaryChange }: Props) {
   const inputRef = React.useRef<HTMLInputElement | null>(null);
+  const [processing, setProcessing] = React.useState(false);
+  const [processingError, setProcessingError] = React.useState<string | null>(null);
+  const previews = React.useMemo(
+    () => photos.map((file) => ({ file, url: URL.createObjectURL(file) })),
+    [photos],
+  );
 
-  function handleFiles(list: FileList | null) {
+  React.useEffect(() => () => {
+    previews.forEach((preview) => URL.revokeObjectURL(preview.url));
+  }, [previews]);
+
+  async function handleFiles(list: FileList | null) {
     if (!list) return;
-    const arr = Array.from(list).slice(0, 5);
-    onChange(arr);
+    setProcessing(true);
+    setProcessingError(null);
+
+    try {
+      const remaining = Math.max(0, 5 - photos.length);
+      const selected = Array.from(list).slice(0, remaining);
+      const optimized = await Promise.all(selected.map((file) => compressImageFile(file)));
+      const next = [...photos, ...optimized].slice(0, 5);
+      onChange(next);
+      if (primaryIndex >= next.length) {
+        onPrimaryChange(0);
+      }
+    } catch (error) {
+      setProcessingError(error instanceof Error ? error.message : 'Impossible de préparer ces images.');
+    } finally {
+      setProcessing(false);
+      if (inputRef.current) {
+        inputRef.current.value = '';
+      }
+    }
   }
 
   return (
@@ -24,8 +55,9 @@ export function PhotoUploader({ photos, onChange }: Props) {
           type="button"
           className="btn btn-secondary btn-xs"
           onClick={() => inputRef.current?.click()}
+          disabled={processing || photos.length >= 5}
         >
-          Sélectionner des fichiers
+          {processing ? 'Optimisation...' : 'Sélectionner des fichiers'}
         </button>
         <input
           ref={inputRef}
@@ -37,30 +69,72 @@ export function PhotoUploader({ photos, onChange }: Props) {
         />
       </div>
       <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10 }}>
-        Formats image. La première deviendra la photo principale. Vous pourrez en ajouter jusqu'à 5.
+        Ajoutez jusqu à 5 photos. Elles sont réduites automatiquement avant l envoi pour eviter les erreurs de taille, puis vous choisissez la photo principale.
       </p>
-      {photos.length > 0 && (
+      {processing && (
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10 }}>
+          Optimisation des photos en cours...
+        </div>
+      )}
+      {processingError && (
+        <div style={{ fontSize: 12, color: 'var(--danger)', marginBottom: 10 }}>
+          {processingError}
+        </div>
+      )}
+      {previews.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px,1fr))', gap: 10 }}>
-          {photos.map((f, idx) => (
-            <div key={f.name + idx} style={{
+          {previews.map(({ file, url }, idx) => (
+            <div key={file.name + idx} style={{
               border: '1px solid var(--border)',
               borderRadius: 8,
               padding: 8,
               background: 'var(--surface-2)',
               position: 'relative',
+              display: 'grid',
+              gap: 8,
             }}>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, wordBreak: 'break-word' }}>
-                {f.name}
+              <div style={{
+                position: 'relative',
+                width: '100%',
+                aspectRatio: '1 / 1',
+                borderRadius: 8,
+                overflow: 'hidden',
+                background: 'var(--surface-3)',
+              }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={url}
+                  alt={file.name}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                />
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', wordBreak: 'break-word' }}>
+                {file.name}
               </div>
               <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-                {(f.size / 1024).toFixed(1)} Ko
+                {(file.size / 1024).toFixed(1)} Ko
               </div>
-              <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6 }}>
-                {idx === 0 && <span className="tag tag-primary" style={{ fontSize: 10 }}>Principale</span>}
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className={idx === primaryIndex ? 'btn btn-primary btn-xs' : 'btn btn-secondary btn-xs'}
+                  onClick={() => onPrimaryChange(idx)}
+                  style={{ padding: '4px 8px', fontSize: 11 }}
+                >
+                  {idx === primaryIndex ? 'Principale' : 'Définir principale'}
+                </button>
                 <button
                   type="button"
                   className="btn btn-ghost btn-xs"
-                  onClick={() => onChange(photos.filter((_, i) => i !== idx))}
+                  onClick={() => {
+                    const next = photos.filter((_, i) => i !== idx);
+                    onChange(next);
+                    if (idx === primaryIndex) {
+                      onPrimaryChange(0);
+                    } else if (idx < primaryIndex) {
+                      onPrimaryChange(primaryIndex - 1);
+                    }
+                  }}
                   style={{ padding: '2px 6px', fontSize: 11 }}
                   title="Retirer"
                 >

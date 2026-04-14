@@ -1,7 +1,9 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { apiFetch } from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
 
 type NewsItem = {
   id: string;
@@ -244,6 +246,8 @@ function ModalLiaisonFeedbacks({
 // ── Page principale ───────────────────────────────────────────────────────────
 
 export default function PageAdminNews() {
+  const { utilisateur, authResolved } = useAuth();
+  const router = useRouter();
   const [news, setNews] = React.useState<NewsItem[] | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [editing, setEditing] = React.useState<NewsItem | null | 'new'>(null);
@@ -254,7 +258,22 @@ export default function PageAdminNews() {
     apiFetch<NewsItem[]>('/news').then(setNews).catch((e) => setError(String(e)));
   }
 
-  React.useEffect(() => { refresh(); }, []);
+  React.useEffect(() => {
+    if (!authResolved) return;
+    if (!utilisateur) {
+      router.replace('/connexion?redirect=/admin/news');
+      return;
+    }
+    if (utilisateur.trustLevel !== 'super_admin') {
+      router.replace('/dashboard');
+      return;
+    }
+    refresh();
+  }, [authResolved, utilisateur, router]);
+
+  if (!authResolved || !utilisateur || utilisateur.trustLevel !== 'super_admin') {
+    return <p className="loading-text">Chargement…</p>;
+  }
 
   async function handlePublish(id: string) {
     setPublishing(id);

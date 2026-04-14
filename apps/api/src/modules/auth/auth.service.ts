@@ -62,9 +62,69 @@ export class AuthService {
     private readonly tokens: TokenService,
   ) {}
 
+  private normalizeEmail(email: string) {
+    return email.trim().toLowerCase();
+  }
+
+  private async ensureAccountAccess<T extends SafeUser & {
+    accountStatus: string;
+    moderationReason: string | null;
+    suspendedUntil: Date | null;
+    canReRegisterAfter: Date | null;
+    moderatedAt: Date | null;
+  }>(user: T): Promise<T> {
+    if (user.accountStatus === 'ACTIVE') return user;
+
+    if (user.accountStatus === 'SUSPENDED') {
+      if (user.suspendedUntil && user.suspendedUntil <= new Date()) {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            accountStatus: 'ACTIVE',
+            moderationReason: null,
+            suspendedUntil: null,
+            moderatedAt: null,
+          },
+        });
+        return {
+          ...user,
+          accountStatus: 'ACTIVE',
+          moderationReason: null,
+          suspendedUntil: null,
+          moderatedAt: null,
+        };
+      }
+
+      throw new UnauthorizedException(
+        user.moderationReason
+          ? `Compte suspendu: ${user.moderationReason}`
+          : 'Ce compte est actuellement suspendu.',
+      );
+    }
+
+    if (user.accountStatus === 'BANNED') {
+      if (user.canReRegisterAfter && user.canReRegisterAfter > new Date()) {
+        throw new UnauthorizedException(
+          `Compte bloqué jusqu'au ${user.canReRegisterAfter.toLocaleDateString('fr-FR')}.`,
+        );
+      }
+      throw new UnauthorizedException(
+        user.moderationReason
+          ? `Compte banni: ${user.moderationReason}`
+          : 'Ce compte a été banni.',
+      );
+    }
+
+    throw new UnauthorizedException('Ce compte a été supprimé ou désactivé.');
+  }
+
   /** Returns a devUrl field only in non-production environments without SMTP configured. */
   private devLink(path: string) {
-    if (process.env.NODE_ENV === 'production' || process.env.SMTP_HOST) return {};
+    const emailEnabled = process.env.EMAIL_ENABLED !== 'false';
+    const smtpHost = process.env.SMTP_HOST?.trim().toLowerCase();
+    const hasRealSmtp = emailEnabled && !!smtpHost && smtpHost !== 'localhost';
+
+    if (process.env.NODE_ENV === 'production' || hasRealSmtp) return {};
     const base = process.env.APP_URL ?? 'http://localhost:3000';
     return { devUrl: `${base}${path}` };
   }
@@ -83,7 +143,7 @@ export class AuthService {
   }
 
   private buildAttemptKey(email: string, ip?: string) {
-    return `${ip ?? 'unknown'}:${email.toLowerCase()}`;
+    return `${ip ?? 'unknown'}:${this.normalizeEmail(email)}`;
   }
 
   // -------------------------------------------------------------------------
@@ -96,16 +156,22 @@ export class AuthService {
     turnstileToken: string | undefined,
     remoteIp?: string,
   ) {
+    const normalizedEmail = this.normalizeEmail(email);
+
     // Verify Turnstile captcha (skipped automatically in dev when no secret is configured)
     await this.captcha.verify(turnstileToken, remoteIp);
 
     // Block disposable/temporary email providers
-    const domain = email.split('@')[1]?.toLowerCase();
+    const domain = normalizedEmail.split('@')[1]?.toLowerCase();
     if (domain && DISPOSABLE_DOMAINS.has(domain)) {
       throw new BadRequestException('Les adresses e-mail temporaires ne sont pas acceptées.');
     }
 
-    const exists = await this.prisma.user.findUnique({ where: { email }, select: { id: true } });
+    const exists = await this.prisma.user.findFirst({
+      where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
+      select: { id: true },
+      orderBy: { createdAt: 'asc' },
+    });
     if (exists) {
       throw new BadRequestException('Cette adresse e-mail est déjà utilisée');
     }
@@ -114,7 +180,7 @@ export class AuthService {
     const passwordHash = await argon2.hash(password, { type: argon2.argon2id });
 
     const user = await this.prisma.user.create({
-      data: { email, displayName, trustLevel: 'new', passwordHash },
+      data: { email: normalizedEmail, displayName, trustLevel: 'new', passwordHash },
       select: safeUserSelect,
     });
 
@@ -124,11 +190,16 @@ export class AuthService {
     await this.prisma.emailVerificationToken.create({
       data: { token: verifToken, userId: user.id, expiresAt },
     });
-    this.email.sendVerificationEmail(email, verifToken).catch(() => {});
+    this.email.sendVerificationEmail(normalizedEmail, verifToken).catch(() => {});
 
-    const accessToken = await this.buildToken(user);
     const devOnly = this.devLink(`/verifier-email?token=${verifToken}`);
-    return { user, accessToken, ...devOnly };
+    return {
+      success: true,
+      email: user.email,
+      displayName: user.displayName,
+      verificationRequired: true,
+      ...devOnly,
+    };
   }
 
   // -------------------------------------------------------------------------
@@ -171,7 +242,12 @@ export class AuthService {
   // -------------------------------------------------------------------------
   async forgotPassword(email: string) {
     // Always respond with the same message to prevent email enumeration
-    const user = await this.prisma.user.findUnique({ where: { email }, select: { id: true } });
+    const normalizedEmail = this.normalizeEmail(email);
+    const user = await this.prisma.user.findFirst({
+      where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
+      select: { id: true, email: true },
+      orderBy: { createdAt: 'asc' },
+    });
     if (user) {
       // Invalidate existing reset tokens for this user
       await this.prisma.passwordResetToken.deleteMany({ where: { userId: user.id } });
@@ -181,7 +257,7 @@ export class AuthService {
       await this.prisma.passwordResetToken.create({
         data: { token, userId: user.id, expiresAt },
       });
-      this.email.sendPasswordResetEmail(email, token).catch(() => {});
+      this.email.sendPasswordResetEmail(user.email, token).catch(() => {});
       const devOnly = this.devLink(`/reinitialiser-mot-de-passe?token=${token}`);
       return { success: true, ...devOnly };
     }
@@ -212,13 +288,16 @@ export class AuthService {
     if (process.env.NODE_ENV === 'production') {
       throw new UnauthorizedException('Not available in production');
     }
-    const user = await this.prisma.user.findUnique({
-      where: { email },
+    const normalizedEmail = this.normalizeEmail(email);
+    const user = await this.prisma.user.findFirst({
+      where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
       select: safeUserSelect,
+      orderBy: { createdAt: 'asc' },
     });
     if (!user) throw new NotFoundException('Utilisateur introuvable');
-    const accessToken = await this.buildToken(user);
-    return { user, accessToken };
+    const safeUser = await this.ensureAccountAccess(user);
+    const accessToken = await this.buildToken(safeUser);
+    return { user: safeUser, accessToken };
   }
 
   async oauthLogin(input: {
@@ -227,18 +306,26 @@ export class AuthService {
     provider: 'google' | 'facebook';
     emailVerified?: boolean;
   }) {
-    const existing = await this.prisma.user.findUnique({
-      where: { email: input.email },
+    const normalizedEmail = this.normalizeEmail(input.email);
+    const existing = await this.prisma.user.findFirst({
+      where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
       select: safeUserSelect,
+      orderBy: { createdAt: 'asc' },
     });
 
     if (existing) {
+      const allowedExisting = await this.ensureAccountAccess(existing);
       if (input.emailVerified && !existing.emailVerifiedAt) {
         await this.prisma.user.update({
           where: { id: existing.id },
-          data: { emailVerifiedAt: new Date() },
+          data: { emailVerifiedAt: new Date(), email: normalizedEmail },
         });
         this.tokens.awardMilestone(existing.id, 'email_verified').catch(() => {});
+      } else if (existing.email !== normalizedEmail) {
+        await this.prisma.user.update({
+          where: { id: existing.id },
+          data: { email: normalizedEmail },
+        });
       }
 
       const refreshedUser = await this.prisma.user.findUnique({
@@ -247,8 +334,9 @@ export class AuthService {
       });
       if (!refreshedUser) throw new NotFoundException('Utilisateur introuvable');
 
-      const accessToken = await this.buildToken(refreshedUser);
-      return { user: refreshedUser, accessToken };
+      const safeUser = await this.ensureAccountAccess({ ...refreshedUser, accountStatus: allowedExisting.accountStatus, moderationReason: allowedExisting.moderationReason, suspendedUntil: allowedExisting.suspendedUntil, canReRegisterAfter: allowedExisting.canReRegisterAfter, moderatedAt: allowedExisting.moderatedAt });
+      const accessToken = await this.buildToken(safeUser);
+      return { user: safeUser, accessToken };
     }
 
     const passwordHash = await argon2.hash(randomBytes(32).toString('hex'), {
@@ -257,7 +345,7 @@ export class AuthService {
 
     const createdUser = await this.prisma.user.create({
       data: {
-        email: input.email,
+        email: normalizedEmail,
         displayName: input.displayName,
         trustLevel: 'new',
         passwordHash,
@@ -270,8 +358,9 @@ export class AuthService {
       this.tokens.awardMilestone(createdUser.id, 'email_verified').catch(() => {});
     }
 
-    const accessToken = await this.buildToken(createdUser);
-    return { user: createdUser, accessToken };
+    const safeUser = await this.ensureAccountAccess(createdUser);
+    const accessToken = await this.buildToken(safeUser);
+    return { user: safeUser, accessToken };
   }
 
   // -------------------------------------------------------------------------
@@ -301,7 +390,8 @@ export class AuthService {
     turnstileToken: string | undefined,
     remoteIp?: string,
   ) {
-    const attemptKey = this.buildAttemptKey(email, remoteIp);
+    const normalizedEmail = this.normalizeEmail(email);
+    const attemptKey = this.buildAttemptKey(normalizedEmail, remoteIp);
 
     if (this.loginAttempts.needsCaptcha(attemptKey)) {
       if (!turnstileToken) {
@@ -313,12 +403,21 @@ export class AuthService {
       await this.captcha.verify(turnstileToken, remoteIp);
     }
 
-    const user = await this.prisma.user.findUnique({
-      where: { email },
+    const users = await this.prisma.user.findMany({
+      where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
+      orderBy: { createdAt: 'asc' },
+      take: 5,
       select: { ...safeUserSelect, passwordHash: true },
     });
-
-    const valid = user ? await verifyHash(password, user.passwordHash) : false;
+    let user = users[0];
+    let valid = false;
+    for (const candidate of users) {
+      if (await verifyHash(password, candidate.passwordHash)) {
+        user = candidate;
+        valid = true;
+        break;
+      }
+    }
 
     if (!user || !valid) {
       const status = this.loginAttempts.recordFailure(attemptKey);
@@ -328,10 +427,15 @@ export class AuthService {
       });
     }
 
+    if (!user.emailVerifiedAt) {
+      throw new UnauthorizedException('Merci de confirmer votre adresse e-mail avant de vous connecter.');
+    }
+
     this.loginAttempts.reset(attemptKey);
     const { passwordHash: _passwordHash, ...safeUser } = user;
     void _passwordHash;
-    const accessToken = await this.buildToken(safeUser);
-    return { user: safeUser, accessToken };
+    const allowedUser = await this.ensureAccountAccess(safeUser);
+    const accessToken = await this.buildToken(allowedUser);
+    return { user: allowedUser, accessToken };
   }
 }

@@ -7,6 +7,8 @@ import { apiFetch } from '../../lib/api';
 type Notif = {
   id: string;
   message: string;
+  title?: string | null;
+  content?: string | null;
   link: string | null;
   read: boolean;
   createdAt: string;
@@ -94,11 +96,23 @@ export function NotificationsPanel() {
           )}
           <div style={{ flex: 1 }}>
             {n.link ? (
-              <Link href={n.link} style={{ fontSize: 13, color: 'var(--text-base)', textDecoration: 'none', lineHeight: 1.4 }}>
-                {n.message}
+              <Link href={n.link} style={{ color: 'var(--text-base)', textDecoration: 'none', lineHeight: 1.4, display: 'grid', gap: 3 }}>
+                <span style={{ fontSize: 13, fontWeight: 700 }}>{n.title ?? n.message}</span>
+                {n.content && (
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                    {n.content}
+                  </span>
+                )}
               </Link>
             ) : (
-              <span style={{ fontSize: 13, lineHeight: 1.4 }}>{n.message}</span>
+              <span style={{ display: 'grid', gap: 3 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.4 }}>{n.title ?? n.message}</span>
+                {n.content && (
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                    {n.content}
+                  </span>
+                )}
+              </span>
             )}
             <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>{timeAgo(n.createdAt)}</div>
           </div>

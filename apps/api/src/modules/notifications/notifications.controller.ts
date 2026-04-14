@@ -3,7 +3,11 @@ import type { Request as ExpressRequest } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PrismaService } from '../prisma/prisma.service';
 
-type AuthUser = { id: string };
+type AuthUser = { id: string; trustLevel?: string };
+
+function isStaff(trustLevel?: string) {
+  return trustLevel === 'moderator' || trustLevel === 'super_admin';
+}
 
 @Controller('/notifications')
 @UseGuards(JwtAuthGuard)
@@ -13,12 +17,21 @@ export class NotificationsController {
   @Get('/')
   async list(@Request() req: ExpressRequest) {
     const user = req.user as AuthUser;
-    return this.prisma.notification.findMany({
+    const notifications = await this.prisma.notification.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: 'desc' },
       take: 50,
-      select: { id: true, message: true, link: true, read: true, createdAt: true },
+      select: { id: true, message: true, title: true, content: true, link: true, read: true, createdAt: true },
     });
+
+    const canAccessStaffLinks = isStaff(user.trustLevel);
+    return notifications.map((notification) => ({
+      ...notification,
+      link:
+        !canAccessStaffLinks && notification.link?.startsWith('/admin/')
+          ? '/messagerie#notifications'
+          : notification.link,
+    }));
   }
 
   @Patch('/read-all')

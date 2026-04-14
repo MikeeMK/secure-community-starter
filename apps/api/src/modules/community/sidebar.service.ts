@@ -11,13 +11,14 @@ export class SidebarService {
     const [onlineUsers, offlineUsers, newMembers, recentTopics, recentPosts, recentRegistrations] =
       await Promise.all([
         this.prisma.user.findMany({
-          where: { lastActiveAt: { gte: onlineThreshold } },
+          where: { lastActiveAt: { gte: onlineThreshold }, accountStatus: { not: 'DELETED' } },
           select: { id: true, displayName: true, lastActiveAt: true, trustLevel: true },
           orderBy: { lastActiveAt: 'desc' },
           take: 20,
         }),
         this.prisma.user.findMany({
           where: {
+            accountStatus: { not: 'DELETED' },
             OR: [{ lastActiveAt: { lt: onlineThreshold } }, { lastActiveAt: null }],
           },
           select: { id: true, displayName: true, lastActiveAt: true, trustLevel: true },
@@ -25,11 +26,13 @@ export class SidebarService {
           take: 20,
         }),
         this.prisma.user.findMany({
+          where: { accountStatus: { not: 'DELETED' } },
           select: { id: true, displayName: true, createdAt: true, trustLevel: true },
           orderBy: { createdAt: 'desc' },
           take: 5,
         }),
         this.prisma.forumTopic.findMany({
+          where: { hiddenAt: null, author: { accountStatus: { not: 'DELETED' } } },
           select: {
             id: true,
             title: true,
@@ -40,6 +43,7 @@ export class SidebarService {
           take: 5,
         }),
         this.prisma.forumPost.findMany({
+          where: { hiddenAt: null, topic: { hiddenAt: null }, author: { accountStatus: { not: 'DELETED' } } },
           select: {
             id: true,
             createdAt: true,
@@ -50,6 +54,7 @@ export class SidebarService {
           take: 5,
         }),
         this.prisma.user.findMany({
+          where: { accountStatus: { not: 'DELETED' } },
           select: { id: true, displayName: true, createdAt: true, trustLevel: true },
           orderBy: { createdAt: 'desc' },
           take: 5,

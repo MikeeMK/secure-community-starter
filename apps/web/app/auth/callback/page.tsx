@@ -9,7 +9,7 @@ import { useAuth } from '../../context/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 
 type OAuthSessionResult = {
-  user: { id: string; displayName: string; email: string; trustLevel: string; isAdultVerified?: boolean };
+  user: { id: string; displayName: string; email: string; avatarUrl?: string | null; trustLevel: string; isAdultVerified?: boolean };
 };
 
 function CallbackCard({

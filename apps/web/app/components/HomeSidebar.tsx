@@ -145,11 +145,7 @@ export function HomeSidebar() {
                     >
                       <span className="sb-name">{u.displayName}</span>
                     </UserProfileTrigger>
-                    {u.trustLevel && (
-                      u.trustLevel === 'moderator' || u.trustLevel === 'super_admin'
-                        ? <PlanPill plan={u.trustLevel} />
-                        : <PlanPill plan={u.trustLevel} />
-                    )}
+                    <UserBadges trustLevel={u.trustLevel} />
                   </div>
                   <span className="sb-sub">En ligne</span>
                 </div>

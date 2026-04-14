@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, Suspense } from 'react';
+import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../lib/api';
@@ -10,9 +11,18 @@ type Tab = 'profil' | 'password' | 'confidentialite';
 type AccountData = {
   displayName: string;
   email: string;
+  avatarUrl: string | null;
   displayNameUpdatedAt: string | null;
-  isAdultVerified: boolean;
-  adultVerifiedAt: string | null;
+  accountStatus?: 'ACTIVE' | 'SUSPENDED' | 'BANNED' | 'DELETED';
+  moderationReason?: string | null;
+  suspendedUntil?: string | null;
+  canReRegisterAfter?: string | null;
+  chatRestrictedUntil?: string | null;
+  chatRestrictionReason?: string | null;
+  publishRestrictedUntil?: string | null;
+  publishRestrictionReason?: string | null;
+  replyRestrictedUntil?: string | null;
+  replyRestrictionReason?: string | null;
   settings: {
     allowChat: boolean;
     hideFromSuggestions: boolean;
@@ -26,6 +36,13 @@ type Settings = {
   allowNotifLikes: boolean;
 };
 
+type ActiveRestriction = {
+  title: string;
+  until: string;
+  reason: string | null | undefined;
+  tone: string;
+};
+
 const COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 
 function daysUntilNextChange(updatedAt: string | null): number | null {
@@ -34,6 +51,16 @@ function daysUntilNextChange(updatedAt: string | null): number | null {
   const diff = next - Date.now();
   if (diff <= 0) return null;
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
+}
+
+function formatDateTime(iso: string) {
+  return new Date(iso).toLocaleString('fr-FR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function Toggle({ checked, onChange, label, description }: {
@@ -96,9 +123,11 @@ function ComptePageInner() {
   const [displayNameLoading, setDisplayNameLoading] = useState(false);
   const [displayNameError, setDisplayNameError] = useState<string | null>(null);
   const [displayNameSuccess, setDisplayNameSuccess] = useState(false);
-  const [adultVerificationLoading, setAdultVerificationLoading] = useState(false);
-  const [adultVerificationError, setAdultVerificationError] = useState<string | null>(null);
-  const [adultVerificationSuccess, setAdultVerificationSuccess] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [avatarSuccess, setAvatarSuccess] = useState(false);
+  const avatarInputRef = React.useRef<HTMLInputElement | null>(null);
 
   // Password tab state
   const [newPassword, setNewPassword] = useState('');
@@ -120,14 +149,13 @@ function ComptePageInner() {
     apiFetch<AccountData>('/account').then((data) => {
       setAccount(data);
       setDisplayName(data.displayName);
+      setAvatarPreview(data.avatarUrl);
       if (data.settings) setSettings(data.settings);
     }).catch(() => {});
     apiFetch<Settings>('/account/settings').then((s) => setSettings(s)).catch(() => {});
   }, [authResolved, estAuthentifie, router]);
 
   const daysLeft = account ? daysUntilNextChange(account.displayNameUpdatedAt) : null;
-  const canChangeDisplayName = daysLeft === null;
-
   async function handleDisplayName(e: React.FormEvent) {
     e.preventDefault();
     if (!displayName.trim()) return;
@@ -172,35 +200,91 @@ function ComptePageInner() {
     }
   }
 
-  async function handleAdultVerificationOverride() {
-    setAdultVerificationLoading(true);
-    setAdultVerificationError(null);
-    setAdultVerificationSuccess(false);
+  async function handleAvatarSelection(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setAvatarError('Le fichier doit être une image.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setAvatarError('L avatar ne doit pas dépasser 5 Mo.');
+      return;
+    }
+
+    setAvatarUploading(true);
+    setAvatarError(null);
+    setAvatarSuccess(false);
 
     try {
-      const result = await apiFetch<{
-        user: {
-          id: string;
-          displayName: string;
-          email: string;
-          trustLevel: string;
-          isAdultVerified: boolean;
-        };
-      }>('/account/adult-verification/dev-override', {
+      const formData = new FormData();
+      formData.append('file0', file);
+      const uploadRes = await fetch('/api/uploads', { method: 'POST', body: formData });
+      if (!uploadRes.ok) {
+        throw new Error('Upload avatar impossible.');
+      }
+
+      const uploadJson = (await uploadRes.json()) as { urls?: string[] };
+      const nextAvatarUrl = uploadJson.urls?.[0];
+      if (!nextAvatarUrl) {
+        throw new Error('Aucune image exploitable n a ete retournee.');
+      }
+
+      const updatedUser = await apiFetch<{
+        id: string;
+        email: string;
+        displayName: string;
+        avatarUrl: string | null;
+        trustLevel: string;
+        isAdultVerified?: boolean;
+      }>('/account/avatar', {
         method: 'PATCH',
+        body: JSON.stringify({ avatarUrl: nextAvatarUrl }),
       });
 
-      setAccount((prev) => prev ? {
-        ...prev,
-        isAdultVerified: true,
-        adultVerifiedAt: new Date().toISOString(),
-      } : prev);
-      setAdultVerificationSuccess(true);
-      connecter(result.user);
+      setAccount((prev) => prev ? { ...prev, avatarUrl: updatedUser.avatarUrl } : prev);
+      setAvatarPreview(updatedUser.avatarUrl);
+      connecter(updatedUser);
+      setAvatarSuccess(true);
+      setTimeout(() => setAvatarSuccess(false), 2500);
     } catch (err: unknown) {
-      setAdultVerificationError(err instanceof Error ? err.message : 'Erreur');
+      setAvatarError(err instanceof Error ? err.message : 'Erreur avatar');
     } finally {
-      setAdultVerificationLoading(false);
+      setAvatarUploading(false);
+      if (avatarInputRef.current) {
+        avatarInputRef.current.value = '';
+      }
+    }
+  }
+
+  async function handleAvatarRemoval() {
+    setAvatarUploading(true);
+    setAvatarError(null);
+    setAvatarSuccess(false);
+    try {
+      const updatedUser = await apiFetch<{
+        id: string;
+        email: string;
+        displayName: string;
+        avatarUrl: string | null;
+        trustLevel: string;
+        isAdultVerified?: boolean;
+      }>('/account/avatar', {
+        method: 'PATCH',
+        body: JSON.stringify({ avatarUrl: null }),
+      });
+
+      setAccount((prev) => prev ? { ...prev, avatarUrl: null } : prev);
+      setAvatarPreview(null);
+      connecter(updatedUser);
+      setAvatarSuccess(true);
+      setTimeout(() => setAvatarSuccess(false), 2500);
+    } catch (err: unknown) {
+      setAvatarError(err instanceof Error ? err.message : 'Erreur avatar');
+    } finally {
+      setAvatarUploading(false);
     }
   }
 
@@ -222,6 +306,42 @@ function ComptePageInner() {
 
   if (!authResolved || !utilisateur || !account) return <div className="loading-text">Chargement…</div>;
 
+  const canChangeDisplayName = daysLeft === null;
+  const activeRestrictions: ActiveRestriction[] = [
+    account.suspendedUntil
+      ? {
+          title: 'Compte suspendu',
+          until: account.suspendedUntil,
+          reason: account.moderationReason,
+          tone: 'var(--danger)',
+        }
+      : null,
+    account.chatRestrictedUntil
+      ? {
+          title: 'Messagerie restreinte',
+          until: account.chatRestrictedUntil,
+          reason: account.chatRestrictionReason,
+          tone: 'var(--warning)',
+        }
+      : null,
+    account.publishRestrictedUntil
+      ? {
+          title: 'Publication restreinte',
+          until: account.publishRestrictedUntil,
+          reason: account.publishRestrictionReason,
+          tone: 'var(--warning)',
+        }
+      : null,
+    account.replyRestrictedUntil
+      ? {
+          title: 'Réponses restreintes',
+          until: account.replyRestrictedUntil,
+          reason: account.replyRestrictionReason,
+          tone: 'var(--warning)',
+        }
+      : null,
+  ].filter(Boolean) as ActiveRestriction[];
+
   const TABS: { id: Tab; label: string }[] = [
     { id: 'profil', label: 'Profil' },
     { id: 'password', label: 'Mot de passe' },
@@ -234,6 +354,33 @@ function ComptePageInner() {
         <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.02em', marginBottom: 4 }}>Mon compte</h1>
         <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>{account.email}</p>
       </div>
+
+      {activeRestrictions.length > 0 && (
+        <div
+          className="card"
+          style={{
+            marginBottom: 20,
+            padding: 18,
+            border: '1px solid rgba(245, 158, 11, 0.25)',
+            background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(239, 68, 68, 0.05))',
+          }}
+        >
+          <div style={{ fontSize: 12, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, marginBottom: 10 }}>
+            Restrictions actives
+          </div>
+          <div style={{ display: 'grid', gap: 10 }}>
+            {activeRestrictions.map((restriction) => (
+              <div key={`${restriction.title}-${restriction.until}`} style={{ padding: 12, borderRadius: 12, background: 'rgba(15, 23, 42, 0.28)', border: '1px solid var(--border)' }}>
+                <div style={{ fontWeight: 700, color: restriction.tone }}>{restriction.title}</div>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.6 }}>
+                  Jusqu au {formatDateTime(restriction.until)}
+                  {restriction.reason ? ` · ${restriction.reason}` : ''}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, borderBottom: '2px solid var(--border)', marginBottom: 28 }}>
@@ -262,6 +409,70 @@ function ComptePageInner() {
       {/* ── Profil ── */}
       {tab === 'profil' && (
         <div className="card">
+          <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Photo de profil</h2>
+          <div style={{ display: 'grid', gap: 16, marginBottom: 28, paddingBottom: 24, borderBottom: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+              <div style={{ width: 110, height: 110, borderRadius: '50%', overflow: 'hidden', border: '3px solid var(--border)', background: 'var(--surface-2)', position: 'relative', flexShrink: 0 }}>
+                {avatarPreview ? (
+                  <Image
+                    src={avatarPreview}
+                    alt={`Avatar de ${account.displayName}`}
+                    fill
+                    unoptimized
+                    sizes="110px"
+                    style={{ objectFit: 'cover' }}
+                  />
+                ) : (
+                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40, fontWeight: 800, color: 'var(--primary)' }}>
+                    {account.displayName.charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'grid', gap: 8, flex: 1, minWidth: 260 }}>
+                <div style={{ fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.7 }}>
+                  Importez l avatar de votre choix tant qu il reste propre, non offensant et conforme aux regles de la communaute.
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--danger)', fontWeight: 700, lineHeight: 1.7 }}>
+                  Interdiction absolue d utiliser un avatar avec nudite, contenu sexuel, pornographique, choquant ou offensant. Toute tentative peut entrainer une lourde sanction.
+                </div>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={avatarUploading}
+                    onClick={() => avatarInputRef.current?.click()}
+                  >
+                    {avatarUploading ? 'Import en cours…' : 'Importer un avatar'}
+                  </button>
+                  {avatarPreview && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      disabled={avatarUploading}
+                      onClick={handleAvatarRemoval}
+                    >
+                      Retirer l avatar
+                    </button>
+                  )}
+                </div>
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  onChange={handleAvatarSelection}
+                />
+                {avatarError && <div className="error-text">{avatarError}</div>}
+                {avatarSuccess && (
+                  <div style={{ color: 'var(--success, #22c55e)', fontSize: 13, fontWeight: 600 }}>
+                    Avatar mis à jour !
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
           <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Nom d'affichage</h2>
           <form onSubmit={handleDisplayName} className="stack">
             <div className="form-group">
@@ -303,35 +514,6 @@ function ComptePageInner() {
               {displayNameLoading ? 'Enregistrement…' : 'Enregistrer'}
             </button>
           </form>
-
-          <div style={{ marginTop: 28, paddingTop: 24, borderTop: '1px solid var(--border)' }}>
-            <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 10 }}>Vérification d'âge</h2>
-            {account.isAdultVerified ? (
-              <div style={{ fontSize: 13, color: 'var(--success)', fontWeight: 600 }}>
-                Compte vérifié{account.adultVerifiedAt ? ` le ${new Date(account.adultVerifiedAt).toLocaleDateString('fr-FR')}` : ''}.
-              </div>
-            ) : (
-              <>
-                <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 14 }}>
-                  La vérification réelle n'est pas encore branchée. Ce bouton applique un override local au compte actuellement connecté, uniquement hors production.
-                </p>
-                {adultVerificationError && <div className="error-text" style={{ marginBottom: 10 }}>{adultVerificationError}</div>}
-                {adultVerificationSuccess && !adultVerificationError && (
-                  <div style={{ fontSize: 13, color: 'var(--success)', fontWeight: 600, marginBottom: 10 }}>
-                    Compte marqué comme vérifié.
-                  </div>
-                )}
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  disabled={adultVerificationLoading}
-                  onClick={handleAdultVerificationOverride}
-                >
-                  {adultVerificationLoading ? 'Application…' : 'Marquer mon compte comme vérifié'}
-                </button>
-              </>
-            )}
-          </div>
         </div>
       )}
 

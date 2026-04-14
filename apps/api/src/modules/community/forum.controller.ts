@@ -16,7 +16,7 @@ import type { Request as ExpressRequest } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ForumService } from './forum.service';
 
-type AuthUser = { id: string; email: string; trustLevel: string; isAdultVerified?: boolean };
+type AuthUser = { id: string; email: string; trustLevel: string };
 
 const ANNOUNCEMENT_CATEGORIES = ['Amitié', 'Activités', 'Rencontre adulte', 'Autre'] as const;
 
@@ -104,7 +104,7 @@ export class ForumController {
   async createTopic(@Body() body: unknown, @Request() req: ExpressRequest) {
     const dto = CreateTopicDto.parse(body);
     const user = req.user as AuthUser;
-    return this.forum.createTopic({ ...dto, authorId: user.id, isAdultVerified: user.isAdultVerified });
+    return this.forum.createTopic({ ...dto, authorId: user.id });
   }
 
   @Patch('/topics/:id')

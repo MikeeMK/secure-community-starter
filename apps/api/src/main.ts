@@ -4,6 +4,42 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { AppModule } from './modules/app.module';
 
+function validateDatabaseConfiguration() {
+  const rawDatabaseUrl = process.env.DATABASE_URL?.trim();
+
+  if (!rawDatabaseUrl) {
+    throw new Error('DATABASE_URL est requis pour démarrer l API.');
+  }
+
+  if (
+    (rawDatabaseUrl.startsWith('"') && rawDatabaseUrl.endsWith('"'))
+    || (rawDatabaseUrl.startsWith('\'') && rawDatabaseUrl.endsWith('\''))
+  ) {
+    throw new Error('DATABASE_URL ne doit pas être entouré de guillemets dans Render.');
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(rawDatabaseUrl);
+  } catch {
+    throw new Error(
+      'DATABASE_URL est invalide. Format attendu: postgresql://USER:PASSWORD@HOST:5432/DB?schema=public',
+    );
+  }
+
+  if (!['postgres:', 'postgresql:'].includes(parsed.protocol)) {
+    throw new Error('DATABASE_URL doit utiliser postgres:// ou postgresql://');
+  }
+
+  if (!parsed.hostname) {
+    throw new Error('DATABASE_URL doit contenir un host valide.');
+  }
+
+  if (parsed.port && !/^\d+$/.test(parsed.port)) {
+    throw new Error('DATABASE_URL contient un port invalide. Le port doit être uniquement numérique.');
+  }
+}
+
 function logEmailConfiguration() {
   const emailEnabled = process.env.EMAIL_ENABLED !== 'false';
   const smtpHost = process.env.SMTP_HOST?.trim();
@@ -38,6 +74,7 @@ function logEmailConfiguration() {
 }
 
 async function bootstrap() {
+  validateDatabaseConfiguration();
   logEmailConfiguration();
   const app = await NestFactory.create(AppModule);
 

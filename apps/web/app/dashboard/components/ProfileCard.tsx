@@ -13,13 +13,6 @@ type UserProfile = {
   lookingFor?: string[];
 };
 
-const gradeLabel: Record<string, string> = {
-  new: 'Nouveau',
-  member: 'Membre',
-  moderator: 'Modérateur',
-  super_admin: 'Super Admin',
-};
-
 // Weights must match backend calcProfileCompletion in profile.service.ts
 const STEPS = [
   { label: 'Email vérifié', weight: 20 },
@@ -61,22 +54,27 @@ function getMissingSteps(emailVerified: boolean, profile: UserProfile | null): s
 }
 
 export function ProfileCard({
+  userId,
   displayName,
   email,
-  trustLevel,
   profile,
   emailVerified,
   tokenBalance,
+  completion,
+  completionUnlocked,
 }: {
+  userId: string;
   displayName: string;
   email: string;
-  trustLevel: string;
   profile: UserProfile | null;
   emailVerified?: boolean;
   tokenBalance?: number;
+  completion?: number;
+  completionUnlocked?: boolean;
 }) {
   const verified = emailVerified ?? false;
-  const pct = calcCompletion(verified, profile);
+  const computedCompletion = calcCompletion(verified, profile);
+  const pct = completionUnlocked ? 100 : (completion ?? computedCompletion);
   const isComplete = pct >= 100;
   const canPost = pct >= 60;
   const missing = getMissingSteps(verified, profile);
@@ -91,7 +89,6 @@ export function ProfileCard({
           <div style={{ fontWeight: 800, fontSize: 18, letterSpacing: '-0.02em' }}>{displayName}</div>
           <div style={{ fontSize: 13, color: 'var(--text-dim)', marginTop: 2 }}>{email}</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
-            <span className="plan-badge">{gradeLabel[trustLevel] ?? trustLevel}</span>
             {tokenBalance !== undefined && (
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -129,12 +126,10 @@ export function ProfileCard({
       )}
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {!isComplete && (
-          <Link href="/profil/modifier" className="btn btn-primary btn-sm">
-            Compléter mon profil
-          </Link>
-        )}
-        <Link href="/profil" className="btn btn-secondary btn-sm">
+        <Link href="/profil/modifier" className="btn btn-primary btn-sm">
+          {isComplete ? 'Modifier mon profil' : 'Compléter mon profil'}
+        </Link>
+        <Link href={`/profil/${userId}`} className="btn btn-secondary btn-sm">
           Voir mon profil
         </Link>
       </div>

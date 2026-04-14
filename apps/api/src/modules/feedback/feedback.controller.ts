@@ -11,6 +11,12 @@ const CreateFeedbackDto = z.object({
   content: z.string().min(10).max(2000),
 });
 
+const UpdateFeedbackDto = z.object({
+  status: z.enum(['NEW', 'IN_REVIEW', 'PLANNED', 'RESOLVED', 'REJECTED']),
+  internalNote: z.string().max(2000).optional(),
+  adminResponse: z.string().max(2000).optional(),
+});
+
 @Controller('/feedback')
 @UseGuards(JwtAuthGuard)
 export class FeedbackController {
@@ -27,5 +33,13 @@ export class FeedbackController {
   @UseGuards(AdminGuard)
   async list() {
     return this.feedbackService.list();
+  }
+
+  @Post('/:id/review')
+  @UseGuards(AdminGuard)
+  async review(@Request() req: ExpressRequest, @Body() body: unknown) {
+    const dto = UpdateFeedbackDto.parse(body);
+    const user = req.user as AuthUser;
+    return this.feedbackService.review((req.params as { id: string }).id, user.id, dto);
   }
 }

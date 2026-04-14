@@ -7,8 +7,19 @@ export type UtilisateurAuth = {
   id: string;
   displayName: string;
   email: string;
+  avatarUrl?: string | null;
   trustLevel: string;
   isAdultVerified?: boolean;
+  accountStatus?: string;
+  moderationReason?: string | null;
+  suspendedUntil?: string | null;
+  canReRegisterAfter?: string | null;
+  chatRestrictedUntil?: string | null;
+  chatRestrictionReason?: string | null;
+  publishRestrictedUntil?: string | null;
+  publishRestrictionReason?: string | null;
+  replyRestrictedUntil?: string | null;
+  replyRestrictionReason?: string | null;
 };
 
 interface AuthContextType {

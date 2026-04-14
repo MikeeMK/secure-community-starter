@@ -51,6 +51,7 @@ export class ProfileService {
       select: {
         id: true,
         displayName: true,
+        avatarUrl: true,
         email: true,
         trustLevel: true,
         emailVerifiedAt: true,
@@ -59,11 +60,15 @@ export class ProfileService {
       },
     });
     if (!user) return null;
-    const completion = calcCompletion(user.emailVerifiedAt, user.profile as Record<string, unknown> | null);
+    const completionUnlocked = await this.tokens.hasProfileCompletionUnlocked(userId);
+    const completion = completionUnlocked
+      ? 100
+      : calcCompletion(user.emailVerifiedAt, user.profile as Record<string, unknown> | null);
     return {
       ...user,
       profile: normalizeProfileRecord(user.profile),
       completion,
+      completionUnlocked,
     };
   }
 
@@ -115,16 +120,18 @@ export class ProfileService {
       where: { id: userId },
       select: { emailVerifiedAt: true },
     });
-    const pct = calcCompletion(user?.emailVerifiedAt ?? null, profile as Record<string, unknown>);
-    if (pct >= 60) this.tokens.awardMilestone(userId, 'profile_60').catch(() => {});
-    if (pct >= 100) this.tokens.awardMilestone(userId, 'profile_100').catch(() => {});
+    const completionUnlocked = await this.tokens.hasProfileCompletionUnlocked(userId);
+    const pct = completionUnlocked
+      ? 100
+      : calcCompletion(user?.emailVerifiedAt ?? null, profile as Record<string, unknown>);
+    if (!completionUnlocked && pct >= 100) this.tokens.awardProfileCompletion(userId).catch(() => {});
 
     return normalizeProfileRecord(profile);
   }
 
   async listMembers(excludeUserId: string) {
     return this.prisma.user.findMany({
-      where: { id: { not: excludeUserId } },
+      where: { id: { not: excludeUserId }, accountStatus: { not: 'DELETED' } },
       orderBy: { lastActiveAt: 'desc' },
       take: 6,
       select: {

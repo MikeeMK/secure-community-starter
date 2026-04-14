@@ -37,10 +37,10 @@ function PageVerifierEmailContent() {
             <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
             <p style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>Adresse e-mail vérifiée !</p>
             <p style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 24 }}>
-              Votre adresse e-mail a bien été confirmée.
+              Votre adresse e-mail a bien été confirmée. Vous pouvez maintenant vous connecter.
             </p>
-            <Link href="/forum" className="btn btn-primary" style={{ display: 'inline-block' }}>
-              Accéder au forum
+            <Link href="/connexion?verified=1" className="btn btn-primary" style={{ display: 'inline-block' }}>
+              Aller à la connexion
             </Link>
           </>
         )}

@@ -8,7 +8,6 @@ import { useAuth } from '../context/AuthContext';
 import { OAuthButtons } from '../components/OAuthButtons';
 import { TurnstileWidget } from '../components/TurnstileWidget';
 import {
-  checkSupabaseLogin,
   isSupabaseConfigured,
   signInWithOAuthProvider,
 } from '../lib/supabaseClient';
@@ -32,6 +31,10 @@ export default function ConnexionClient() {
   const [captchaRequired, setCaptchaRequired] = React.useState(false);
   const [captchaToken, setCaptchaToken] = React.useState<string | null>(null);
   const [captchaReset, setCaptchaReset] = React.useState(0);
+  const info =
+    params.get('verified') === '1'
+      ? 'Adresse e-mail confirmée. Vous pouvez maintenant vous connecter.'
+      : null;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -42,13 +45,6 @@ export default function ConnexionClient() {
     setChargement(true);
     setErreur(null);
     try {
-      const supa = await checkSupabaseLogin(email, motDePasse);
-      if (!supa.ok) {
-        setErreur(supa.message ?? 'Connexion impossible via Supabase');
-        setChargement(false);
-        return;
-      }
-
       const body = {
         email,
         password: motDePasse,
@@ -193,6 +189,7 @@ export default function ConnexionClient() {
           )}
 
           {erreur && <div className="error-text">{erreur}</div>}
+          {info && <div className="success-text">{info}</div>}
 
           <button
             type="submit"

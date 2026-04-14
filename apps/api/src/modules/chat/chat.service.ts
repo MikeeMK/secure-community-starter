@@ -5,11 +5,27 @@ import { PrismaService } from '../prisma/prisma.service';
 export class ChatService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private async ensureChatAllowed(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { chatRestrictedUntil: true, chatRestrictionReason: true },
+    });
+    if (user?.chatRestrictedUntil && user.chatRestrictedUntil > new Date()) {
+      throw new BadRequestException(
+        user.chatRestrictionReason
+          ? `Messagerie bloquée: ${user.chatRestrictionReason}`
+          : 'Vous ne pouvez pas utiliser la messagerie pour le moment.',
+      );
+    }
+  }
+
   private sortIds(a: string, b: string): [string, string] {
     return a < b ? [a, b] : [b, a];
   }
 
   async findOrCreateConversation(initiatorId: string, targetId: string, announcementId?: string) {
+    await this.ensureChatAllowed(initiatorId);
+
     // Check if target has disabled chat requests
     const targetSettings = await this.prisma.userSettings.findUnique({
       where: { userId: targetId },
@@ -51,6 +67,8 @@ export class ChatService {
     await this.prisma.notification.create({
       data: {
         userId: targetId,
+        title: 'Nouvelle demande de contact',
+        content: message,
         message,
         link: `/messages?conv=${conv.id}`,
       },
@@ -70,6 +88,7 @@ export class ChatService {
         user1: { select: { id: true, displayName: true } },
         user2: { select: { id: true, displayName: true } },
         messages: {
+          where: { hiddenAt: null },
           orderBy: { createdAt: 'desc' },
           take: 1,
           select: { content: true, createdAt: true, senderId: true, read: true },
@@ -90,7 +109,7 @@ export class ChatService {
       where: { OR: [{ user1Id: userId }, { user2Id: userId }] },
       select: {
         messages: {
-          where: { read: false, senderId: { not: userId } },
+          where: { read: false, senderId: { not: userId }, hiddenAt: null },
           select: { id: true },
         },
       },
@@ -106,7 +125,7 @@ export class ChatService {
     });
 
     return this.prisma.chatMessage.findMany({
-      where: { conversationId },
+      where: { conversationId, hiddenAt: null },
       orderBy: { createdAt: 'asc' },
       select: {
         id: true,
@@ -119,6 +138,7 @@ export class ChatService {
   }
 
   async sendMessage(conversationId: string, senderId: string, content: string) {
+    await this.ensureChatAllowed(senderId);
     return this.prisma.chatMessage.create({
       data: { conversationId, senderId, content },
       select: {

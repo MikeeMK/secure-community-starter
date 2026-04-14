@@ -14,6 +14,13 @@ enum TrustLevel {
   super_admin
 }
 
+enum UserAccountStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+  DELETED
+}
+
 enum ReportTargetType {
   USER
   TOPIC
@@ -28,16 +35,36 @@ enum ReportStatus {
   DISMISSED
 }
 
+enum FeedbackStatus {
+  NEW
+  IN_REVIEW
+  PLANNED
+  RESOLVED
+  REJECTED
+}
+
 model User {
   id           String     @id @default(cuid())
   email        String     @unique
   displayName  String
+  avatarUrl    String?
   passwordHash String
   trustLevel   TrustLevel @default(new)
+  accountStatus UserAccountStatus @default(ACTIVE)
 
   emailVerifiedAt      DateTime?
   lastActiveAt         DateTime?
   displayNameUpdatedAt DateTime?
+  moderationReason     String?
+  suspendedUntil       DateTime?
+  canReRegisterAfter   DateTime?
+  moderatedAt          DateTime?
+  chatRestrictedUntil     DateTime?
+  chatRestrictionReason   String?
+  publishRestrictedUntil  DateTime?
+  publishRestrictionReason String?
+  replyRestrictedUntil    DateTime?
+  replyRestrictionReason  String?
   isAdultVerified       Boolean   @default(false)
   adultVerifiedAt       DateTime?
   verificationProvider  String?
@@ -53,8 +80,10 @@ model User {
   verificationTokens  EmailVerificationToken[]
   passwordResetTokens PasswordResetToken[]
   feedbacks           Feedback[]
+  feedbackReviews     Feedback[]              @relation("FeedbackReviewedBy")
   newsAuthored        News[]
   notifications       Notification[]
+  moderationActionsAuthored ModerationAction[] @relation("ModerationActionsAuthored")
   profile             UserProfile?
   settings            UserSettings?
   topicLikes          ForumTopicLike[]
@@ -66,6 +95,7 @@ model User {
   favorites           AnnouncementFavorite[]
 
   @@index([trustLevel])
+  @@index([accountStatus])
 }
 
 model UserSettings {
@@ -138,6 +168,8 @@ model ForumTopic {
   region         String?
   photos         Json?
   closed         Boolean  @default(false)
+  hiddenAt       DateTime?
+  hiddenReason   String?
   createdAt      DateTime @default(now())
 
   authorId String
@@ -169,6 +201,8 @@ model ForumTopicLike {
 model ForumPost {
   id        String   @id @default(cuid())
   body      String
+  hiddenAt  DateTime?
+  hiddenReason String?
   createdAt DateTime @default(now())
 
   topicId String
@@ -189,6 +223,8 @@ model Report {
   reason     String
   resolutionReason String?
   rewardTokens     Int      @default(0)
+  archivedAt       DateTime?
+  archivedById     String?
   handledById      String?
   handledBy        User?    @relation("ReportsHandled", fields: [handledById], references: [id])
 
@@ -203,15 +239,39 @@ model Feedback {
   id         String   @id @default(cuid())
   content    String
   aiAnalysis Json?    // { sentiment, category, tags, summary }
+  status     FeedbackStatus @default(NEW)
+  internalNote String?
+  adminResponse String?
+  reviewedAt DateTime?
   createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewedById String?
+  reviewedBy   User? @relation("FeedbackReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
 
   newsFeedbacks NewsFeedback[]
 
   @@index([createdAt])
   @@index([userId])
+  @@index([status, createdAt])
+}
+
+model ModerationAction {
+  id         String   @id @default(cuid())
+  actionType String
+  targetType String
+  targetId   String?
+  reason     String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  actorId String
+  actor   User   @relation("ModerationActionsAuthored", fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([actorId, createdAt])
+  @@index([targetType, targetId, createdAt])
 }
 
 model News {
@@ -261,6 +321,8 @@ model ChatMessage {
   id             String   @id @default(cuid())
   content        String
   read           Boolean  @default(false)
+  hiddenAt       DateTime?
+  hiddenReason   String?
   createdAt      DateTime @default(now())
 
   conversationId String
@@ -275,6 +337,8 @@ model ChatMessage {
 model Notification {
   id        String   @id @default(cuid())
   message   String
+  title     String?
+  content   String?
   link      String?
   read      Boolean  @default(false)
   createdAt DateTime @default(now())

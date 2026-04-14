@@ -25,6 +25,6 @@ import { TokenModule } from '../tokens/token.module';
   ],
   controllers: [AuthController],
   providers: [AuthService, CaptchaService, EmailService, LoginAttemptService, JwtStrategy, JwtAuthGuard],
-  exports: [AuthService, JwtAuthGuard],
+  exports: [AuthService, JwtAuthGuard, EmailService],
 })
 export class AuthModule {}

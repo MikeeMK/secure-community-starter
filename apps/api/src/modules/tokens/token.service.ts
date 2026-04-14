@@ -3,15 +3,28 @@ import { PrismaService } from '../prisma/prisma.service';
 
 export const MILESTONES: Record<string, { amount: number; label: string }> = {
   email_verified:      { amount: 20,  label: 'Email vérifié' },
-  profile_60:          { amount: 50,  label: 'Profil complété à 60%' },
   profile_100:         { amount: 100, label: 'Profil complété à 100%' },
   adult_verified:      { amount: 30,  label: 'Vérification adulte' },
   first_announcement:  { amount: 10,  label: 'Première annonce publiée' },
 };
 
+const LEGACY_PROFILE_60_AMOUNT = 50;
+
 @Injectable()
 export class TokenService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async hasMilestone(userId: string, milestone: string): Promise<boolean> {
+    const row = await this.prisma.tokenBalance.findUnique({
+      where: { userId },
+      select: { awardedMilestones: true },
+    });
+    return row?.awardedMilestones.includes(milestone) ?? false;
+  }
+
+  async hasProfileCompletionUnlocked(userId: string): Promise<boolean> {
+    return this.hasMilestone(userId, 'profile_100');
+  }
 
   async getBalance(userId: string): Promise<{ balance: number; awardedMilestones: string[] }> {
     const row = await this.prisma.tokenBalance.findUnique({ where: { userId } });
@@ -59,6 +72,49 @@ export class TokenService {
       }),
       this.prisma.tokenTransaction.create({ data: { userId, amount: def.amount, reason: def.label } }),
     ]);
+    return true;
+  }
+
+  /**
+   * Award profile completion tokens only once at 100%.
+   * If the legacy 60% milestone was already granted, only the remaining delta is awarded.
+   */
+  async awardProfileCompletion(userId: string): Promise<boolean> {
+    const row = await this.prisma.tokenBalance.findUnique({ where: { userId } });
+    if (row?.awardedMilestones.includes('profile_100')) return false;
+
+    const alreadyAwarded =
+      row?.awardedMilestones.includes('profile_60') ? LEGACY_PROFILE_60_AMOUNT : 0;
+    const amount = Math.max(MILESTONES.profile_100.amount - alreadyAwarded, 0);
+
+    await this.prisma.$transaction([
+      this.prisma.tokenBalance.upsert({
+        where: { userId },
+        create: {
+          userId,
+          balance: amount,
+          awardedMilestones: ['profile_100'],
+          updatedAt: new Date(),
+        },
+        update: {
+          balance: { increment: amount },
+          awardedMilestones: { push: 'profile_100' },
+          updatedAt: new Date(),
+        },
+      }),
+      ...(amount > 0
+        ? [
+            this.prisma.tokenTransaction.create({
+              data: {
+                userId,
+                amount,
+                reason: MILESTONES.profile_100.label,
+              },
+            }),
+          ]
+        : []),
+    ]);
+
     return true;
   }
 

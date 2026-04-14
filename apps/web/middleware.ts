@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import {
+  AGE_GATE_ACCEPTED,
+  AGE_GATE_COOKIE_NAME,
+  AGE_GATE_DECLINED,
+  normalizeAgeGateRedirectTarget,
+} from './app/lib/age-gate';
 
 // Routes accessibles sans authentification
 const ROUTES_PUBLIQUES = [
@@ -10,10 +16,53 @@ const ROUTES_PUBLIQUES = [
   '/login',
   '/register',
   '/legal',
+  '/majorite',
+  '/acces-interdit',
 ];
 
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
+  const ageGate = request.cookies.get(AGE_GATE_COOKIE_NAME)?.value;
+  const surPageMajorite = pathname === '/majorite' || pathname.startsWith('/majorite/');
+  const surPageBlocage = pathname === '/acces-interdit' || pathname.startsWith('/acces-interdit/');
+
+  if (ageGate === AGE_GATE_DECLINED && !surPageBlocage) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/acces-interdit';
+    url.search = '';
+    return NextResponse.redirect(url);
+  }
+
+  if (ageGate !== AGE_GATE_ACCEPTED && ageGate !== AGE_GATE_DECLINED) {
+    if (!surPageMajorite) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/majorite';
+      url.search = '';
+      url.searchParams.set('next', normalizeAgeGateRedirectTarget(`${pathname}${search}`));
+      return NextResponse.redirect(url);
+    }
+  }
+
+  if (ageGate === AGE_GATE_ACCEPTED && (surPageMajorite || surPageBlocage)) {
+    const url = request.nextUrl.clone();
+    url.pathname = normalizeAgeGateRedirectTarget(request.nextUrl.searchParams.get('next'));
+    url.search = '';
+    return NextResponse.redirect(url);
+  }
+
+  if (ageGate === AGE_GATE_DECLINED && surPageMajorite) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/acces-interdit';
+    url.search = '';
+    return NextResponse.redirect(url);
+  }
+
+  if (!ageGate && surPageBlocage) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/majorite';
+    url.search = '';
+    return NextResponse.redirect(url);
+  }
 
   // Vérifier si la route est publique
   const estPublique = ROUTES_PUBLIQUES.some(

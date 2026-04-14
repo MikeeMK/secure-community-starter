@@ -20,7 +20,7 @@ const FAQ_CATEGORIES = ['Compte', 'Sécurité', 'Rencontres', 'Annonces', 'Token
 const EMPTY_FORM = { question: '', answer: '', category: 'Compte', displayOrder: 0, published: true };
 
 export default function AdminFaqPage() {
-  const { utilisateur } = useAuth();
+  const { utilisateur, authResolved } = useAuth();
   const router = useRouter();
   const [items, setItems] = React.useState<FaqItem[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -30,11 +30,19 @@ export default function AdminFaqPage() {
   const [showForm, setShowForm] = React.useState(false);
 
   React.useEffect(() => {
-    if (!utilisateur) return;
-    const isStaff = utilisateur.trustLevel === 'moderator' || utilisateur.trustLevel === 'super_admin';
-    if (!isStaff) { router.push('/dashboard'); return; }
+    if (!authResolved) return;
+    if (!utilisateur) {
+      router.replace('/connexion?redirect=/admin/faq');
+      return;
+    }
+    const isSuperAdmin = utilisateur.trustLevel === 'super_admin';
+    if (!isSuperAdmin) { router.replace('/dashboard'); return; }
     fetchItems();
-  }, [utilisateur, router]);
+  }, [authResolved, utilisateur, router]);
+
+  if (!authResolved || !utilisateur || utilisateur.trustLevel !== 'super_admin') {
+    return <p className="loading-text">Chargement…</p>;
+  }
 
   async function fetchItems() {
     setLoading(true);

@@ -589,6 +589,8 @@ html.dark .badge-resolved {
    ============================================================ */
 
 .avatar {
+  position: relative;
+  overflow: hidden;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--surface-3), var(--surface-4));
   border: 2px solid var(--border);
