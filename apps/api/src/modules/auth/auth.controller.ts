@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpException,
   Post,
   Query,
   Request,
@@ -108,6 +109,13 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post('/refresh')
+  async refresh(@Request() req: ExpressRequest) {
+    const user = req.user as AuthUser;
+    return this.auth.refresh(user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post('/ping')
   async ping(@Request() req: ExpressRequest) {
     const user = req.user as AuthUser;
@@ -120,7 +128,16 @@ export class AuthController {
     if (!result.success) {
       throw new BadRequestException(result.error.flatten().fieldErrors);
     }
-    return this.auth.oauthLogin(result.data);
+    try {
+      return this.auth.oauthLogin(result.data);
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new BadRequestException(
+        error instanceof Error ? error.message : 'Connexion sociale impossible.',
+      );
+    }
   }
 
   /** Dev-only: login without password */

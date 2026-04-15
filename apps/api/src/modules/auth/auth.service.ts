@@ -47,6 +47,20 @@ async function verifyHash(password: string, stored: string): Promise<boolean> {
   return legacyVerify(password, stored);
 }
 
+function legacyHash(password: string): string {
+  const salt = randomBytes(16).toString('hex');
+  const derived = pbkdf2Sync(password, salt, 100_000, 32, 'sha256').toString('hex');
+  return `${salt}:${derived}`;
+}
+
+async function hashPassword(password: string): Promise<string> {
+  try {
+    return await argon2.hash(password, { type: argon2.argon2id });
+  } catch {
+    return legacyHash(password);
+  }
+}
+
 // ---------------------------------------------------------------------------
 
 @Injectable()
@@ -177,7 +191,7 @@ export class AuthService {
     }
 
     // Hash with argon2id
-    const passwordHash = await argon2.hash(password, { type: argon2.argon2id });
+    const passwordHash = await hashPassword(password);
 
     const user = await this.prisma.user.create({
       data: { email: normalizedEmail, displayName, trustLevel: 'new', passwordHash },
@@ -232,7 +246,7 @@ export class AuthService {
     const valid = await verifyHash(currentPassword, user.passwordHash);
     if (!valid) throw new BadRequestException('Mot de passe actuel incorrect');
 
-    const newHash = await argon2.hash(newPassword, { type: argon2.argon2id });
+    const newHash = await hashPassword(newPassword);
     await this.prisma.user.update({ where: { id: userId }, data: { passwordHash: newHash } });
     return { success: true };
   }
@@ -272,7 +286,7 @@ export class AuthService {
     if (!record || record.expiresAt < new Date()) {
       throw new BadRequestException('Lien de réinitialisation invalide ou expiré');
     }
-    const newHash = await argon2.hash(newPassword, { type: argon2.argon2id });
+    const newHash = await hashPassword(newPassword);
     await this.prisma.user.update({
       where: { id: record.userId },
       data: { passwordHash: newHash },
@@ -339,9 +353,7 @@ export class AuthService {
       return { user: safeUser, accessToken };
     }
 
-    const passwordHash = await argon2.hash(randomBytes(32).toString('hex'), {
-      type: argon2.argon2id,
-    });
+    const passwordHash = await hashPassword(randomBytes(32).toString('hex'));
 
     const createdUser = await this.prisma.user.create({
       data: {
@@ -359,6 +371,20 @@ export class AuthService {
     }
 
     const safeUser = await this.ensureAccountAccess(createdUser);
+    const accessToken = await this.buildToken(safeUser);
+    return { user: safeUser, accessToken };
+  }
+
+  // -------------------------------------------------------------------------
+  // refresh — issue a new JWT for an already-authenticated user
+  // -------------------------------------------------------------------------
+  async refresh(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: safeUserSelect,
+    });
+    if (!user) throw new NotFoundException('Utilisateur introuvable');
+    const safeUser = await this.ensureAccountAccess(user);
     const accessToken = await this.buildToken(safeUser);
     return { user: safeUser, accessToken };
   }
@@ -393,7 +419,7 @@ export class AuthService {
     const normalizedEmail = this.normalizeEmail(email);
     const attemptKey = this.buildAttemptKey(normalizedEmail, remoteIp);
 
-    if (this.loginAttempts.needsCaptcha(attemptKey)) {
+    if (await this.loginAttempts.needsCaptcha(attemptKey)) {
       if (!turnstileToken) {
         throw new BadRequestException({
           message: 'Captcha requis après plusieurs tentatives échouées',
@@ -420,7 +446,7 @@ export class AuthService {
     }
 
     if (!user || !valid) {
-      const status = this.loginAttempts.recordFailure(attemptKey);
+      const status = await this.loginAttempts.recordFailure(attemptKey);
       throw new UnauthorizedException({
         message: 'Identifiants incorrects',
         captchaRequired: status.requireCaptcha,
@@ -431,7 +457,7 @@ export class AuthService {
       throw new UnauthorizedException('Merci de confirmer votre adresse e-mail avant de vous connecter.');
     }
 
-    this.loginAttempts.reset(attemptKey);
+    await this.loginAttempts.reset(attemptKey);
     const { passwordHash: _passwordHash, ...safeUser } = user;
     void _passwordHash;
     const allowedUser = await this.ensureAccountAccess(safeUser);

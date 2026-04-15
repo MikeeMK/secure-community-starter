@@ -92,8 +92,16 @@ async function bootstrap() {
     }),
   );
 
+  const allowedOrigins =
+    process.env.NODE_ENV === 'production'
+      ? (process.env.FRONTEND_URL ?? '')
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : ['http://localhost:3000', 'http://127.0.0.1:3000'];
+
   app.enableCors({
-    origin: true,
+    origin: allowedOrigins.length > 0 ? allowedOrigins : false,
     credentials: true,
   });
 

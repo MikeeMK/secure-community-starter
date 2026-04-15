@@ -142,12 +142,16 @@ async function resolveOAuthPayload(providerAccessToken: string) {
   };
 }
 
-async function proxyAuthRequest(endpoint: string, body: string) {
+async function proxyAuthRequest(endpoint: string, body: string, authToken?: string) {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+  }
   let upstream: Response;
   try {
     upstream = await fetch(`${getApiBaseUrl()}${endpoint}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body,
       cache: 'no-store',
     });
@@ -194,6 +198,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const response = NextResponse.json({ success: true });
     clearAuthCookie(response);
     return response;
+  }
+
+  if (action === 'refresh') {
+    const authToken = request.cookies.get(AUTH_COOKIE_NAME)?.value;
+    if (!authToken) {
+      return NextResponse.json({ message: 'Non authentifié' }, { status: 401 });
+    }
+    return proxyAuthRequest('/auth/refresh', '{}', authToken);
   }
 
   const endpoint = SESSION_ACTIONS[action as keyof typeof SESSION_ACTIONS];

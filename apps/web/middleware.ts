@@ -10,12 +10,15 @@ import {
 // Routes accessibles sans authentification
 const ROUTES_PUBLIQUES = [
   '/',
-  '/auth',
   '/connexion',
   '/inscription',
-  '/login',
-  '/register',
+  '/auth',
+  '/mot-de-passe-oublie',
+  '/reinitialiser-mot-de-passe',
+  '/verifier-email',
   '/legal',
+  '/faq',
+  '/changelog',
   '/majorite',
   '/acces-interdit',
 ];

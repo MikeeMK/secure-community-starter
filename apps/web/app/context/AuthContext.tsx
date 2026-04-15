@@ -61,12 +61,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     if (!utilisateur) return;
-    apiFetch('/auth/ping', { method: 'POST' }).catch(() => {});
-    const id = setInterval(() => {
-      apiFetch('/auth/ping', { method: 'POST' }).catch(() => {});
-    }, 5 * 60 * 1000);
+
+    // Refresh the JWT every 20 minutes so the session never expires silently.
+    // On failure (401), clear the local auth state so the UI reflects reality.
+    async function doRefresh() {
+      try {
+        const result = await apiFetch<{ user: UtilisateurAuth }>('/api/session/refresh', { method: 'POST' });
+        setUtilisateur(result.user);
+      } catch {
+        clearAuth();
+        setAuthResolved(true);
+      }
+    }
+
+    const id = setInterval(doRefresh, 20 * 60 * 1000);
     return () => clearInterval(id);
-  }, [utilisateur]);
+  }, [utilisateur, clearAuth]);
 
   const connecter = React.useCallback((user: UtilisateurAuth) => {
     setUtilisateur(user);

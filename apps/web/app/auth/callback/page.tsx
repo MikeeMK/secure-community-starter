@@ -83,7 +83,8 @@ function AuthCallbackContent() {
         connecter(result.user);
         await supabaseClient.auth.signOut().catch(() => {});
 
-        const next = searchParams.get('next') ?? '/dashboard';
+        const rawNext = searchParams.get('next') ?? '/dashboard';
+        const next = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/dashboard';
         router.replace(next);
       } catch (err) {
         if (cancelled) return;

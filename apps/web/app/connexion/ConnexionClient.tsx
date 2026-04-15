@@ -58,7 +58,8 @@ export default function ConnexionClient() {
       setCaptchaRequired(false);
       setCaptchaToken(null);
       setCaptchaReset((v) => v + 1);
-      const redirect = params.get('redirect') ?? '/dashboard';
+      const rawRedirect = params.get('redirect') ?? '/dashboard';
+      const redirect = rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : '/dashboard';
       router.push(redirect);
     } catch (e) {
       if (e instanceof ApiFetchError && e.captchaRequired) {
@@ -73,12 +74,16 @@ export default function ConnexionClient() {
   }
 
   async function devLogin() {
+    if (!email) {
+      setErreur('Entrez un e-mail pour le dev login.');
+      return;
+    }
     setChargement(true);
     setErreur(null);
     try {
       const resultat = await apiFetch<LoginResult>('/api/session/dev-login', {
         method: 'POST',
-        body: JSON.stringify({ email: 'mk.chaouch@gmail.com' }),
+        body: JSON.stringify({ email }),
       });
       connecter(resultat.user);
       router.push('/dashboard');
@@ -227,7 +232,7 @@ export default function ConnexionClient() {
                 opacity: chargement ? 0.6 : 1,
               }}
             >
-              ⚡ Dev — Connexion Mikee
+              ⚡ Dev — Connexion rapide
             </button>
           </div>
         )}
