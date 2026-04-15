@@ -40,7 +40,9 @@
       "Bash(cmd.exe /c \"for /f \"\"tokens=5\"\" %a in \\(''netstat -ano ^| findstr \"\":4000 \"\"''\\) do taskkill /f /pid %a 2>nul\")",
       "Bash(cmd.exe /c \"handle64 query_engine-windows.dll 2>nul | head -5\")",
       "Bash(cmd.exe /c \"wmic process where \"\"name=''node.exe''\"\" get processid,description 2>nul\")",
-      "Bash(cmd.exe /c \"del /f \"\"C:\\\\Users\\\\mkcha\\\\Desktop\\\\secure-community-starter\\\\node_modules\\\\.pnpm\\\\@prisma+client@5.22.0_prisma@5.22.0\\\\node_modules\\\\.prisma\\\\client\\\\query_engine-windows.dll.node\"\" 2>&1\")"
+      "Bash(cmd.exe /c \"del /f \"\"C:\\\\Users\\\\mkcha\\\\Desktop\\\\secure-community-starter\\\\node_modules\\\\.pnpm\\\\@prisma+client@5.22.0_prisma@5.22.0\\\\node_modules\\\\.prisma\\\\client\\\\query_engine-windows.dll.node\"\" 2>&1\")",
+      "Bash(pnpm -C apps/api prisma migrate deploy)",
+      "Bash(DIRECT_URL=\"postgresql://postgres:3MqvFqU4%237%40mUno1AfUd@db.hsvxvhxriglvwmkegfrm.supabase.co:5432/postgres?schema=public\" DATABASE_URL=\"postgresql://postgres.hsvxvhxriglvwmkegfrm:3MqvFqU4%237%40mUno1AfUd@aws-1-eu-west-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&sslmode=require&schema=public\" npx prisma migrate deploy)"
     ]
   }
 }
