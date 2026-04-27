@@ -22,7 +22,7 @@ function isStaff(trustLevel?: string) {
 
 export function Nav() {
   const pathname = usePathname();
-  const { utilisateur, deconnecter, estAuthentifie } = useAuth();
+  const { utilisateur, deconnecter, estAuthentifie, authResolved } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -72,7 +72,7 @@ export function Nav() {
 
         {/* Actions à droite */}
         <div className="nav-actions">
-          {estAuthentifie && utilisateur ? (
+          {!authResolved ? null : estAuthentifie && utilisateur ? (
             <div className="nav-user-menu" ref={menuRef}>
               <button className="nav-user-trigger" onClick={() => setMenuOpen((v) => !v)}>
                 <div style={{ position: 'relative', display: 'inline-flex' }}>

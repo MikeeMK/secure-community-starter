@@ -21,6 +21,7 @@ type Annonce = {
   author: { id: string; displayName: string; trustLevel: string };
   _count: { likes: number };
   liked: boolean;
+  favorited?: boolean;
 };
 
 const REPORT_REASONS = [
@@ -44,6 +45,7 @@ export default function AnnonceDetailPage() {
   const [erreur, setErreur] = React.useState<string | null>(null);
   const [liked, setLiked] = React.useState(false);
   const [likeCount, setLikeCount] = React.useState(0);
+  const [favorited, setFavorited] = React.useState(false);
   const [chatLoading, setChatLoading] = React.useState(false);
   const [chatStarted, setChatStarted] = React.useState(false);
   const [photoIndex, setPhotoIndex] = React.useState<number>(0);
@@ -74,6 +76,7 @@ export default function AnnonceDetailPage() {
         setAnnonce(a);
         setLiked(a.liked);
         setLikeCount(a._count.likes);
+        setFavorited(a.favorited ?? false);
       })
       .catch((e) => setErreur(String(e)));
   }, [id]);
@@ -88,6 +91,17 @@ export default function AnnonceDetailPage() {
     } catch {
       setLiked(prev);
       setLikeCount((c) => prev ? c + 1 : c - 1);
+    }
+  }
+
+  async function handleFavorite() {
+    if (!estAuthentifie) return;
+    const prev = favorited;
+    setFavorited(!prev);
+    try {
+      await apiFetch(`/community/forum/topics/${id}/favorite`, { method: 'POST' });
+    } catch {
+      setFavorited(prev);
     }
   }
 
@@ -270,13 +284,24 @@ export default function AnnonceDetailPage() {
               ♥ {likeCount > 0 ? likeCount : 'J\'aime'}
             </button>
 
+            {estAuthentifie && !isOwn && (
+              <button
+                className={`btn btn-sm ${favorited ? 'btn-secondary' : 'btn-ghost'}`}
+                onClick={handleFavorite}
+                title={favorited ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+                style={{ minWidth: 36 }}
+              >
+                {favorited ? '★ Favori' : '☆ Favoris'}
+              </button>
+            )}
+
             {!isOwn && estAuthentifie && (
               <button
                 className="btn btn-primary btn-sm"
                 onClick={handleChat}
                 disabled={chatLoading || chatStarted}
               >
-                {chatStarted ? 'Message envoyé ✓' : chatLoading ? 'Connexion…' : '💬 Chat'}
+                {chatStarted ? 'Message envoyé ✓' : chatLoading ? 'Connexion…' : '💬 Contacter par chat'}
               </button>
             )}
 

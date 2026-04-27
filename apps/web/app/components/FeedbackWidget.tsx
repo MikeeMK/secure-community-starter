@@ -4,13 +4,14 @@ import React from 'react';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 
-type Category = 'Suggestion' | 'Bug' | 'Question';
+type Category = 'Suggestion' | 'Bug' | 'Question' | 'Autre';
 type Sentiment = 'positive' | 'neutral' | 'frustrated' | 'angry';
 
 const CATEGORIES: { id: Category; icon: string }[] = [
   { id: 'Suggestion', icon: '💡' },
   { id: 'Bug', icon: '🐛' },
   { id: 'Question', icon: '❓' },
+  { id: 'Autre', icon: '💬' },
 ];
 
 const toastMessages: Record<Sentiment, string> = {
@@ -113,7 +114,7 @@ export function FeedbackWidget() {
           >
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 }}>
-              <span style={{ fontWeight: 800, fontSize: 17, letterSpacing: '-0.01em' }}>Envoyer un feedback</span>
+              <span style={{ fontWeight: 800, fontSize: 17, letterSpacing: '-0.01em' }}>Donnez votre avis</span>
               <button
                 onClick={() => setOpen(false)}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 20, lineHeight: 1, padding: 4 }}

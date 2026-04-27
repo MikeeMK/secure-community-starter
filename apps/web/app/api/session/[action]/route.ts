@@ -29,6 +29,7 @@ function getSupabaseConfig() {
 function getApiBaseUrl() {
   const configured =
     process.env.API_BASE_URL ??
+    process.env.NEXT_PUBLIC_API_URL ??
     process.env.NEXT_PUBLIC_API_BASE_URL ??
     `http://localhost:${process.env.API_PORT ?? 4000}`;
 

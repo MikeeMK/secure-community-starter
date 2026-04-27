@@ -61,7 +61,7 @@ export default function DashboardPage() {
   const [showAnnouncementForm, setShowAnnouncementForm] = React.useState(false);
   const [announcementTitle, setAnnouncementTitle] = React.useState('');
   const [announcementBody, setAnnouncementBody] = React.useState('');
-  const [announcementCategory, setAnnouncementCategory] = React.useState<(typeof ANNOUNCEMENT_CATEGORIES)[number]>('Autre');
+  const [announcementCategory, setAnnouncementCategory] = React.useState<(typeof ANNOUNCEMENT_CATEGORIES)[number] | ''>('');
   const [announcementRegion, setAnnouncementRegion] = React.useState('');
   const [announcementDept, setAnnouncementDept] = React.useState('');
   const [announcementPhotos, setAnnouncementPhotos] = React.useState<File[]>([]);
@@ -140,6 +140,12 @@ export default function DashboardPage() {
       setAnnouncementStep('contenu');
       return;
     }
+    const urlPattern = /https?:\/\/|www\.[^\s]+\.[a-z]{2,}/i;
+    if (urlPattern.test(announcementTitle) || urlPattern.test(announcementBody)) {
+      setAnnouncementError('Les liens (URLs) ne sont pas autorisés dans les annonces.');
+      setAnnouncementStep('contenu');
+      return;
+    }
     setAnnouncementLoading(true);
     setAnnouncementError(null);
     try {
@@ -178,6 +184,7 @@ export default function DashboardPage() {
       setAnnouncementPhotos([]);
       setAnnouncementPrimaryIndex(0);
       setAnnouncementStep('cadre');
+      setAnnouncementCategory('');
     } catch (err: unknown) {
       const msg = (err as { message?: string })?.message;
       setAnnouncementError(msg ?? 'Une erreur est survenue.');
@@ -237,7 +244,7 @@ export default function DashboardPage() {
           <div className="dashboard-nav-divider" />
           <button
             className="dashboard-nav-item"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left' }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left', color: 'var(--text)', opacity: 1 }}
             onClick={() => window.dispatchEvent(new CustomEvent('open-feedback'))}
           >
             <span className="dashboard-nav-icon">💡</span>
@@ -280,19 +287,31 @@ export default function DashboardPage() {
                 </p>
               )}
             </div>
-            <button
-              className={`btn btn-sm ${showAnnouncementForm ? 'btn-secondary' : 'btn-primary'}`}
-              onClick={() => {
-                setShowAnnouncementForm((v) => !v);
-                if (!showAnnouncementForm) {
-                  setAnnouncementError(null);
-                  setAnnouncementPosted(null);
-                }
-              }}
-              style={{ flexShrink: 0, marginLeft: 12 }}
-            >
-              {showAnnouncementForm ? 'Annuler' : 'Publier'}
-            </button>
+            {profileLoaded && typeof profileCompletion === 'number' && profileCompletion < 80 && !showAnnouncementForm ? (
+              <div style={{ textAlign: 'right', marginLeft: 12 }}>
+                <button className="btn btn-sm btn-secondary" disabled style={{ opacity: 0.45 }}>
+                  Publier
+                </button>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 0', lineHeight: 1.4 }}>
+                  Profil à {profileCompletion}% —{' '}
+                  <Link href="/compte/profil" style={{ color: 'var(--primary)' }}>compléter à 80%</Link>
+                </p>
+              </div>
+            ) : (
+              <button
+                className={`btn btn-sm ${showAnnouncementForm ? 'btn-secondary' : 'btn-primary'}`}
+                onClick={() => {
+                  setShowAnnouncementForm((v) => !v);
+                  if (!showAnnouncementForm) {
+                    setAnnouncementError(null);
+                    setAnnouncementPosted(null);
+                  }
+                }}
+                style={{ flexShrink: 0, marginLeft: 12 }}
+              >
+                {showAnnouncementForm ? 'Annuler' : 'Publier'}
+              </button>
+            )}
           </div>
 
           {announcementPosted && !showAnnouncementForm && (
@@ -360,8 +379,9 @@ export default function DashboardPage() {
                       <select
                         className="form-input"
                         value={announcementCategory}
-                        onChange={(e) => setAnnouncementCategory(e.target.value as (typeof ANNOUNCEMENT_CATEGORIES)[number])}
+                        onChange={(e) => setAnnouncementCategory(e.target.value as (typeof ANNOUNCEMENT_CATEGORIES)[number] | '')}
                       >
+                        <option value="" disabled>Choisir une catégorie</option>
                         {ANNOUNCEMENT_CATEGORIES.map((cat) => (
                           <option key={cat} value={cat}>
                             {cat}

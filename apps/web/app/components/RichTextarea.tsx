@@ -83,7 +83,7 @@ function serializeNode(node: Node): string {
   }
 
   if (tag === 'DIV' || tag === 'P') {
-    return `${childContent}${childContent.endsWith('<br>') || childContent.length === 0 ? '' : '<br>'}`;
+    return `${childContent}${childContent.endsWith('\n') || childContent.length === 0 ? '' : '\n'}`;
   }
 
   return childContent;
@@ -93,7 +93,7 @@ function serializeEditor(root: HTMLElement) {
   return Array.from(root.childNodes)
     .map(serializeNode)
     .join('')
-    .replace(/(?:<br>){3,}/g, '<br><br>')
+    .replace(/\n{3,}/g, '\n\n')
     .trimEnd();
 }
 

@@ -33,7 +33,7 @@ function unescapeAllowedTags(text: string) {
 
 export function renderRichText(text: string): string {
   if (/<\/?(strong|em)\s*>|<br\s*\/?>/i.test(text)) {
-    return unescapeAllowedTags(escapeHtml(text));
+    return unescapeAllowedTags(escapeHtml(text)).replace(/\n/g, '<br>');
   }
 
   return renderMarkdown(text);

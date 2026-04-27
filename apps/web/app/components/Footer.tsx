@@ -7,7 +7,7 @@ export function Footer() {
     <footer className="footer">
       <div className="footer-inner">
         {/* Liens légaux */}
-        <div className="footer-links">
+        <div className="footer-links" style={{ justifyContent: 'center', textAlign: 'center' }}>
           <Link href="/legal/cgu" className="footer-link">CGU</Link>
           <Link href="/legal/privacy" className="footer-link">Confidentialité</Link>
           <Link href="/legal/mentions-legales" className="footer-link">Mentions légales</Link>
