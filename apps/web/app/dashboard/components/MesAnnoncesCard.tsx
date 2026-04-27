@@ -12,8 +12,16 @@ type Annonce = {
   title: string;
   body: string;
   createdAt: string;
+  isBoosted?: boolean;
+  isFeatured?: boolean;
   likes: Liker[];
   _count: { likes: number };
+};
+
+type PlanInfo = {
+  plan: 'free' | 'plus' | 'premium';
+  announcementsUsed: number;
+  announcementsMax: number;
 };
 
 function formaterDate(iso: string) {
@@ -23,19 +31,54 @@ function formaterDate(iso: string) {
 export function MesAnnoncesCard() {
   const [annonces, setAnnonces] = React.useState<Annonce[] | null>(null);
   const [openLikes, setOpenLikes] = React.useState<string | null>(null);
+  const [planInfo, setPlanInfo] = React.useState<PlanInfo | null>(null);
+  const [boostLoading, setBoostLoading] = React.useState<string | null>(null);
+  const [featureLoading, setFeatureLoading] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     apiFetch<Annonce[]>('/community/forum/topics/my-announcements')
       .then(setAnnonces)
       .catch(() => setAnnonces([]));
+    apiFetch<PlanInfo>('/plan').then(setPlanInfo).catch(() => {});
   }, []);
+
+  async function handleBoost(id: string) {
+    setBoostLoading(id);
+    try {
+      await apiFetch(`/plan/boost/${id}`, { method: 'POST' });
+      setAnnonces((prev) => prev?.map((a) => a.id === id ? { ...a, isBoosted: true } : a) ?? null);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Impossible de booster pour le moment.');
+    } finally {
+      setBoostLoading(null);
+    }
+  }
+
+  async function handleFeature(id: string) {
+    setFeatureLoading(id);
+    try {
+      await apiFetch(`/plan/feature/${id}`, { method: 'POST' });
+      setAnnonces((prev) => prev?.map((a) => a.id === id ? { ...a, isFeatured: true } : a) ?? null);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Impossible de mettre en avant pour le moment.');
+    } finally {
+      setFeatureLoading(null);
+    }
+  }
 
   if (!annonces) return null;
   if (annonces.length === 0) return null;
 
   return (
     <div className="card">
-      <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 14 }}>Mes annonces</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        <div style={{ fontWeight: 700, fontSize: 14 }}>Mes annonces</div>
+        {planInfo && (
+          <span style={{ fontSize: 12, color: 'var(--text-dim)', fontWeight: 500 }}>
+            {planInfo.announcementsUsed}/{planInfo.announcementsMax} utilisée{planInfo.announcementsMax > 1 ? 's' : ''}
+          </span>
+        )}
+      </div>
 
       <div className="stack" style={{ gap: 12 }}>
         {annonces.map((a) => (
@@ -76,7 +119,37 @@ export function MesAnnoncesCard() {
                   <span>♥</span>
                   <span>{a._count.likes}</span>
                 </button>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                  {planInfo?.plan === 'premium' && !a.isBoosted && (
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      style={{ fontSize: 11, padding: '3px 10px', background: 'linear-gradient(135deg,#7c3aed,#9c27b0)', color: '#fff', border: 'none' }}
+                      disabled={boostLoading === a.id}
+                      onClick={() => handleBoost(a.id)}
+                      title="Remonter en tête de liste pendant 7 jours"
+                    >
+                      {boostLoading === a.id ? '…' : '🚀 Booster'}
+                    </button>
+                  )}
+                  {a.isBoosted && (
+                    <span style={{ fontSize: 11, color: '#7c3aed', fontWeight: 700 }}>🚀 Boosté</span>
+                  )}
+                  {planInfo && planInfo.plan !== 'free' && !a.isFeatured && (
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      style={{ fontSize: 11, padding: '3px 10px', background: 'linear-gradient(135deg,#6366f1,#818cf8)', color: '#fff', border: 'none' }}
+                      disabled={featureLoading === a.id}
+                      onClick={() => handleFeature(a.id)}
+                      title="Mise en avant pendant 7 jours"
+                    >
+                      {featureLoading === a.id ? '…' : '⭐ Mettre en avant'}
+                    </button>
+                  )}
+                  {a.isFeatured && (
+                    <span style={{ fontSize: 11, color: '#6366f1', fontWeight: 700 }}>⭐ En avant</span>
+                  )}
                   <Link href={`/annonces/${a.id}/modifier`} className="btn btn-secondary btn-sm" style={{ fontSize: 11, padding: '3px 10px' }}>
                     Modifier
                   </Link>

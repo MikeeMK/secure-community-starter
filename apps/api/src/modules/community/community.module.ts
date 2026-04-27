@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 import { TokenModule } from '../tokens/token.module';
+import { PlanModule } from '../plan/plan.module';
 import { ForumController } from './forum.controller';
 import { ForumService } from './forum.service';
 import { GroupsController } from './groups.controller';
@@ -10,7 +11,7 @@ import { SidebarController } from './sidebar.controller';
 import { SidebarService } from './sidebar.service';
 
 @Module({
-  imports: [PrismaModule, AuthModule, TokenModule],
+  imports: [PrismaModule, AuthModule, TokenModule, PlanModule],
   controllers: [ForumController, GroupsController, SidebarController],
   providers: [ForumService, GroupsService, SidebarService],
 })

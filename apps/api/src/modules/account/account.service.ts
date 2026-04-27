@@ -115,4 +115,85 @@ export class AccountService {
       select: { allowChat: true, hideFromSuggestions: true, allowNotifLikes: true },
     });
   }
+
+  async exportData(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        avatarUrl: true,
+        createdAt: true,
+        emailVerifiedAt: true,
+        dateOfBirth: true,
+        profile: true,
+        settings: true,
+      },
+    });
+
+    if (!user) throw new BadRequestException('Utilisateur introuvable');
+
+    const topics = await this.prisma.forumTopic.findMany({
+      where: { authorId: userId },
+      select: { id: true, title: true, body: true, createdAt: true, isAnnouncement: true, category: true, region: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const messages = await this.prisma.chatMessage.findMany({
+      where: { senderId: userId },
+      select: { id: true, content: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+      take: 500,
+    });
+
+    return {
+      exportedAt: new Date().toISOString(),
+      account: {
+        id: user.id,
+        email: user.email,
+        displayName: user.displayName,
+        avatarUrl: user.avatarUrl,
+        createdAt: user.createdAt,
+        emailVerifiedAt: user.emailVerifiedAt,
+        dateOfBirth: user.dateOfBirth,
+      },
+      profile: user.profile ?? null,
+      settings: user.settings ?? null,
+      contributions: {
+        topicsCount: topics.length,
+        topics,
+        messagesCount: messages.length,
+        messages,
+      },
+    };
+  }
+
+  async deleteAccount(userId: string) {
+    const anonymizedEmail = `deleted_${userId}@deleted.velentra`;
+    const randomHash = await argon2.hash(
+      Math.random().toString(36) + Date.now().toString(36),
+      { type: argon2.argon2id },
+    );
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          email: anonymizedEmail,
+          displayName: '[Compte supprimé]',
+          avatarUrl: null,
+          passwordHash: randomHash,
+          accountStatus: 'DELETED',
+          emailVerifiedAt: null,
+          dateOfBirth: null,
+        },
+      }),
+      this.prisma.userProfile.deleteMany({ where: { userId } }),
+      this.prisma.userSettings.deleteMany({ where: { userId } }),
+      this.prisma.notification.deleteMany({ where: { userId } }),
+    ]);
+
+    return { success: true };
+  }
 }

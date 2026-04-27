@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Avatar } from '../../components/Avatar';
-import { TrustBadge } from '../../components/Badge';
+import { TrustBadge, PlanPill } from '../../components/Badge';
 import { RichContent } from '../../components/RichContent';
 import { UserProfileTrigger } from '../../components/UserProfileTrigger';
 import { apiFetch } from '../../lib/api';
@@ -18,7 +18,9 @@ type Annonce = {
   isAnnouncement: boolean;
   photos?: string[] | null;
   createdAt: string;
-  author: { id: string; displayName: string; trustLevel: string };
+  isBoosted?: boolean;
+  isFeatured?: boolean;
+  author: { id: string; displayName: string; trustLevel: string; plan?: string };
   _count: { likes: number };
   liked: boolean;
   favorited?: boolean;
@@ -55,6 +57,11 @@ export default function AnnonceDetailPage() {
   const [reportNote, setReportNote] = React.useState('');
   const [reportSent, setReportSent] = React.useState(false);
   const [reporting, setReporting] = React.useState(false);
+  const [boosted, setBoosted] = React.useState(false);
+  const [featured, setFeatured] = React.useState(false);
+  const [boostLoading, setBoostLoading] = React.useState(false);
+  const [featureLoading, setFeatureLoading] = React.useState(false);
+  const [userPlan, setUserPlan] = React.useState<string>('free');
 
   React.useEffect(() => {
     if (!menuOpen) return undefined;
@@ -77,9 +84,16 @@ export default function AnnonceDetailPage() {
         setLiked(a.liked);
         setLikeCount(a._count.likes);
         setFavorited(a.favorited ?? false);
+        setBoosted(a.isBoosted ?? false);
+        setFeatured(a.isFeatured ?? false);
       })
       .catch((e) => setErreur(String(e)));
   }, [id]);
+
+  React.useEffect(() => {
+    if (!estAuthentifie) return;
+    apiFetch<{ plan: string }>('/plan').then((p) => setUserPlan(p.plan)).catch(() => {});
+  }, [estAuthentifie]);
 
   async function handleLike() {
     if (!estAuthentifie) return;
@@ -120,6 +134,32 @@ export default function AnnonceDetailPage() {
       alert(e instanceof Error ? e.message : 'Impossible d’ouvrir la conversation pour le moment.');
     } finally {
       setChatLoading(false);
+    }
+  }
+
+  async function handleBoost() {
+    if (!id) return;
+    setBoostLoading(true);
+    try {
+      await apiFetch(`/plan/boost/${id}`, { method: 'POST' });
+      setBoosted(true);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Impossible de booster pour le moment.');
+    } finally {
+      setBoostLoading(false);
+    }
+  }
+
+  async function handleFeature() {
+    if (!id) return;
+    setFeatureLoading(true);
+    try {
+      await apiFetch(`/plan/feature/${id}`, { method: 'POST' });
+      setFeatured(true);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Impossible de mettre en avant pour le moment.');
+    } finally {
+      setFeatureLoading(false);
     }
   }
 
@@ -228,6 +268,7 @@ export default function AnnonceDetailPage() {
                   <span>{annonce.author.displayName}</span>
                 </UserProfileTrigger>
                 <TrustBadge level={annonce.author.trustLevel} />
+                <PlanPill plan={annonce.author.plan} />
                 <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{formaterDate(annonce.createdAt)}</span>
               </div>
               <h1 style={{ fontSize: 24, fontWeight: 900, lineHeight: 1.25, letterSpacing: '-0.03em', margin: 0 }}>
@@ -309,6 +350,36 @@ export default function AnnonceDetailPage() {
               <Link href={`/annonces/${id}/modifier`} className="btn btn-secondary btn-sm">
                 Modifier mon annonce
               </Link>
+            )}
+
+            {isOwn && userPlan === 'premium' && !boosted && (
+              <button
+                className="btn btn-sm"
+                onClick={handleBoost}
+                disabled={boostLoading}
+                style={{ background: 'linear-gradient(135deg,#7c3aed,#9c27b0)', color: '#fff', border: 'none' }}
+                title="Remonter en tête de liste pendant 7 jours"
+              >
+                {boostLoading ? 'Activation…' : '🚀 Booster'}
+              </button>
+            )}
+            {isOwn && boosted && (
+              <span style={{ fontSize: 13, color: '#7c3aed', fontWeight: 700 }}>🚀 Annonce boostée</span>
+            )}
+
+            {isOwn && (userPlan === 'plus' || userPlan === 'premium') && !featured && (
+              <button
+                className="btn btn-sm"
+                onClick={handleFeature}
+                disabled={featureLoading}
+                style={{ background: 'linear-gradient(135deg,#6366f1,#818cf8)', color: '#fff', border: 'none' }}
+                title="Mise en avant pendant 7 jours"
+              >
+                {featureLoading ? 'Activation…' : '⭐ Mettre en avant'}
+              </button>
+            )}
+            {isOwn && featured && (
+              <span style={{ fontSize: 13, color: '#6366f1', fontWeight: 700 }}>⭐ Mise en avant active</span>
             )}
           </div>
         </div>

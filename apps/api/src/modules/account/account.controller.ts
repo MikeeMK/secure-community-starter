@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Patch, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Patch, Request, Res, UseGuards } from '@nestjs/common';
+import type { Response } from 'express';
 import { z } from 'zod';
 import type { Request as ExpressRequest } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -64,5 +65,20 @@ export class AccountController {
     }).parse(body);
     const user = req.user as AuthUser;
     return this.account.updateSettings(user.id, dto);
+  }
+
+  @Get('/export')
+  async exportData(@Request() req: ExpressRequest, @Res() res: Response) {
+    const user = req.user as AuthUser;
+    const data = await this.account.exportData(user.id);
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="velentra-mes-donnees-${new Date().toISOString().slice(0, 10)}.json"`);
+    res.send(JSON.stringify(data, null, 2));
+  }
+
+  @Delete()
+  async deleteAccount(@Request() req: ExpressRequest) {
+    const user = req.user as AuthUser;
+    return this.account.deleteAccount(user.id);
   }
 }

@@ -14,6 +14,7 @@ import { ChatModule } from './chat/chat.module';
 import { AccountModule } from './account/account.module';
 import { TokenModule } from './tokens/token.module';
 import { FaqModule } from './faq/faq.module';
+import { PlanModule } from './plan/plan.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { FaqModule } from './faq/faq.module';
     AccountModule,
     TokenModule,
     FaqModule,
+    PlanModule,
   ],
 })
 export class AppModule {}

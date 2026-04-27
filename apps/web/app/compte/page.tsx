@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../lib/api';
 
-type Tab = 'profil' | 'password' | 'confidentialite';
+type Tab = 'profil' | 'password' | 'confidentialite' | 'donnees';
 
 type AccountData = {
   displayName: string;
@@ -142,6 +142,13 @@ function ComptePageInner() {
   const [settings, setSettings] = useState<Settings>({ allowChat: true, hideFromSuggestions: false, allowNotifLikes: true });
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsSuccess, setSettingsSuccess] = useState(false);
+
+  // Données & RGPD tab state
+  const [exportLoading, setExportLoading] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteStep, setDeleteStep] = useState<'idle' | 'confirm'>('idle');
 
   useEffect(() => {
     if (!authResolved) return;
@@ -342,10 +349,48 @@ function ComptePageInner() {
       : null,
   ].filter(Boolean) as ActiveRestriction[];
 
+  async function handleExport() {
+    setExportLoading(true);
+    try {
+      const res = await fetch('/api/backend/account/export', {
+        headers: { 'Accept': 'application/json' },
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Export impossible');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `velentra-mes-donnees-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert('Export impossible pour le moment, réessayez plus tard.');
+    } finally {
+      setExportLoading(false);
+    }
+  }
+
+  async function handleDeleteAccount() {
+    if (deleteConfirm !== 'SUPPRIMER') return;
+    setDeleteLoading(true);
+    setDeleteError(null);
+    try {
+      await apiFetch('/account', { method: 'DELETE' });
+      await fetch('/api/session/logout', { method: 'POST' });
+      window.location.href = '/';
+    } catch (err: unknown) {
+      setDeleteError(err instanceof Error ? err.message : 'Erreur lors de la suppression');
+    } finally {
+      setDeleteLoading(false);
+    }
+  }
+
   const TABS: { id: Tab; label: string }[] = [
     { id: 'profil', label: 'Profil' },
     { id: 'password', label: 'Mot de passe' },
     { id: 'confidentialite', label: 'Confidentialité' },
+    { id: 'donnees', label: 'Données & RGPD' },
   ];
 
   return (
@@ -619,6 +664,131 @@ function ComptePageInner() {
 
           <div style={{ marginTop: 20, padding: '14px 16px', background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)', fontSize: 13, color: 'var(--text-muted)' }}>
             💡 <strong>Note :</strong> les conversations ouvertes depuis une annonce restent toujours accessibles, même si le chat direct est désactivé.
+          </div>
+
+          <div style={{ marginTop: 28, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.7 }}>
+              Pour exercer vos droits RGPD (accès, portabilité, suppression des données), rendez-vous dans l'onglet{' '}
+              <button
+                type="button"
+                onClick={() => setTab('donnees')}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', fontWeight: 600, padding: 0, fontSize: 13 }}
+              >
+                Données & RGPD →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Données & RGPD ── */}
+      {tab === 'donnees' && (
+        <div style={{ display: 'grid', gap: 16 }}>
+          {/* Export */}
+          <div className="card">
+            <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>Exporter mes données</h2>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20, lineHeight: 1.7 }}>
+              Conformément au RGPD (Article 20 — droit à la portabilité), vous pouvez télécharger
+              l'ensemble de vos données personnelles dans un fichier JSON : informations de compte,
+              profil, préférences, publications et messages.
+            </p>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={handleExport}
+              disabled={exportLoading}
+              style={{ alignSelf: 'flex-start' }}
+            >
+              {exportLoading ? 'Préparation…' : '⬇ Télécharger mes données'}
+            </button>
+          </div>
+
+          {/* Supprimer le compte */}
+          <div
+            className="card"
+            style={{
+              border: '1px solid rgba(239, 68, 68, 0.25)',
+              background: 'linear-gradient(135deg, rgba(239,68,68,0.05), rgba(239,68,68,0.02))',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <span style={{ fontSize: 18 }}>⚠️</span>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--danger, #ef4444)', margin: 0 }}>
+                Supprimer mon compte
+              </h2>
+            </div>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.7, marginBottom: 20 }}>
+              Conformément au RGPD (Article 17 — droit à l'effacement), vous pouvez demander la
+              suppression immédiate de votre compte. Cette action est <strong>irréversible</strong> :
+              votre email, profil, préférences et données personnelles seront effacés. Vos
+              publications seront anonymisées (auteur affiché comme «&nbsp;[Compte supprimé]&nbsp;»).
+            </p>
+
+            {deleteStep === 'idle' && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setDeleteStep('confirm')}
+                style={{ borderColor: 'rgba(239,68,68,0.4)', color: 'var(--danger, #ef4444)' }}
+              >
+                Supprimer mon compte
+              </button>
+            )}
+
+            {deleteStep === 'confirm' && (
+              <div style={{ display: 'grid', gap: 12 }}>
+                <div
+                  style={{
+                    padding: '12px 16px',
+                    background: 'rgba(239,68,68,0.08)',
+                    borderRadius: 10,
+                    fontSize: 13,
+                    color: 'var(--text)',
+                    lineHeight: 1.6,
+                    border: '1px solid rgba(239,68,68,0.2)',
+                  }}
+                >
+                  Pour confirmer, tapez <strong>SUPPRIMER</strong> dans le champ ci-dessous.
+                </div>
+                <input
+                  className="form-input"
+                  value={deleteConfirm}
+                  onChange={(e) => setDeleteConfirm(e.target.value)}
+                  placeholder="SUPPRIMER"
+                  autoComplete="off"
+                  style={{ borderColor: deleteConfirm === 'SUPPRIMER' ? 'var(--danger, #ef4444)' : undefined }}
+                />
+                {deleteError && <div className="error-text">{deleteError}</div>}
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => { setDeleteStep('idle'); setDeleteConfirm(''); setDeleteError(null); }}
+                    disabled={deleteLoading}
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={handleDeleteAccount}
+                    disabled={deleteLoading || deleteConfirm !== 'SUPPRIMER'}
+                    style={{
+                      background: deleteConfirm === 'SUPPRIMER' ? 'var(--danger, #ef4444)' : 'var(--surface-3)',
+                      color: deleteConfirm === 'SUPPRIMER' ? '#fff' : 'var(--text-dim)',
+                      borderColor: 'transparent',
+                    }}
+                  >
+                    {deleteLoading ? 'Suppression…' : 'Confirmer la suppression'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <p style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 16, lineHeight: 1.6 }}>
+              Si vous avez des questions, contactez-nous à{' '}
+              <span style={{ color: 'var(--primary)' }}>privacy@velentra.fr</span> avant de supprimer votre compte.
+            </p>
           </div>
         </div>
       )}

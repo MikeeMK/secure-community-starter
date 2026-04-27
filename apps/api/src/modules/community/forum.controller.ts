@@ -14,6 +14,7 @@ import {
 import { z } from 'zod';
 import type { Request as ExpressRequest } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/optional-jwt.guard';
 import { ForumService } from './forum.service';
 
 type AuthUser = { id: string; email: string; trustLevel: string };
@@ -57,6 +58,7 @@ export class ForumController {
   }
 
   @Get('/annonces')
+  @UseGuards(OptionalJwtAuthGuard)
   async listAnnouncements(
     @Query('category') category?: string,
     @Query('region') region?: string,

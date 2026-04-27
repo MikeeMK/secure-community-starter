@@ -44,6 +44,12 @@ enum FeedbackStatus {
   REJECTED
 }
 
+enum UserPlan {
+  free
+  plus
+  premium
+}
+
 model User {
   id           String     @id @default(cuid())
   email        String     @unique
@@ -67,6 +73,8 @@ model User {
   publishRestrictionReason String?
   replyRestrictedUntil    DateTime?
   replyRestrictionReason  String?
+  plan              UserPlan  @default(free)
+  planExpiresAt     DateTime?
   isAdultVerified       Boolean   @default(false)
   adultVerifiedAt       DateTime?
   verificationProvider  String?
@@ -169,7 +177,11 @@ model ForumTopic {
   category       String   @default("Autre")
   region         String?
   photos         Json?
-  closed         Boolean  @default(false)
+  closed            Boolean   @default(false)
+  isBoosted         Boolean   @default(false)
+  boostExpiresAt    DateTime?
+  isFeatured        Boolean   @default(false)
+  featuredExpiresAt DateTime?
   hiddenAt       DateTime?
   hiddenReason   String?
   createdAt      DateTime @default(now())

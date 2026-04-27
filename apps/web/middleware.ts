@@ -7,11 +7,30 @@ import {
   normalizeAgeGateRedirectTarget,
 } from './app/lib/age-gate';
 
-// Routes accessibles sans authentification
-const ROUTES_PUBLIQUES = [
+// Toujours privées, même si un préfixe parent est public
+function estToujoursPrivee(pathname: string): boolean {
+  return (
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/compte') ||
+    pathname.startsWith('/messagerie') ||
+    pathname.startsWith('/mes-annonces') ||
+    pathname.startsWith('/admin') ||
+    pathname === '/profil/modifier' ||
+    pathname.startsWith('/profil/modifier/') ||
+    pathname === '/annonces/favoris' ||
+    pathname.startsWith('/annonces/favoris/') ||
+    // /annonces/[id]/modifier
+    (pathname.startsWith('/annonces/') && pathname.endsWith('/modifier'))
+  );
+}
+
+// Accessibles sans compte (navigation publique)
+const PREFIXES_PUBLICS = [
   '/',
   '/connexion',
   '/inscription',
+  '/login',
+  '/register',
   '/auth',
   '/mot-de-passe-oublie',
   '/reinitialiser-mot-de-passe',
@@ -21,7 +40,23 @@ const ROUTES_PUBLIQUES = [
   '/changelog',
   '/majorite',
   '/acces-interdit',
+  // Navigation publique — lecture seule
+  '/annonces',
+  '/forum',
+  '/groupes',
+  '/groups',
+  '/membres',
+  '/profil',
+  '/profile',
 ];
+
+function estPublique(pathname: string): boolean {
+  return PREFIXES_PUBLICS.some(
+    (prefix) =>
+      pathname === prefix ||
+      (prefix !== '/' && pathname.startsWith(prefix + '/')),
+  );
+}
 
 export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
@@ -29,6 +64,7 @@ export function middleware(request: NextRequest) {
   const surPageMajorite = pathname === '/majorite' || pathname.startsWith('/majorite/');
   const surPageBlocage = pathname === '/acces-interdit' || pathname.startsWith('/acces-interdit/');
 
+  // ── 1. Age gate ───────────────────────────────────────────────────────────
   if (ageGate === AGE_GATE_DECLINED && !surPageBlocage) {
     const url = request.nextUrl.clone();
     url.pathname = '/acces-interdit';
@@ -67,22 +103,31 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Vérifier si la route est publique
-  const estPublique = ROUTES_PUBLIQUES.some(
-    (route) => pathname === route || pathname.startsWith(route + '/')
-  );
+  // ── 2. Auth ───────────────────────────────────────────────────────────────
+  const cookieAuth = request.cookies.get('community_auth');
 
-  if (estPublique) {
+  // Les routes toujours privées passent avant la vérification publique
+  if (estToujoursPrivee(pathname)) {
+    if (!cookieAuth?.value) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/connexion';
+      url.search = '';
+      url.searchParams.set('redirect', pathname);
+      return NextResponse.redirect(url);
+    }
     return NextResponse.next();
   }
 
-  // Vérifier le cookie d'authentification
-  const cookieAuth = request.cookies.get('community_auth');
+  // Routes de navigation publique : accessibles sans compte
+  if (estPublique(pathname)) {
+    return NextResponse.next();
+  }
 
+  // Tout le reste nécessite un compte
   if (!cookieAuth?.value) {
     const url = request.nextUrl.clone();
     url.pathname = '/connexion';
-    // Conserver la destination pour rediriger après connexion
+    url.search = '';
     url.searchParams.set('redirect', pathname);
     return NextResponse.redirect(url);
   }
@@ -92,13 +137,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Correspondance sur toutes les routes sauf :
-     * - _next/static (fichiers statiques)
-     * - _next/image (optimisation d'images)
-     * - favicon.ico
-     * - fichiers avec extension (images, etc.)
-     */
     '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };

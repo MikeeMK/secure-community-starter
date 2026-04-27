@@ -1,6 +1,7 @@
 import { Injectable, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TokenService } from '../tokens/token.service';
+import { PlanService } from '../plan/plan.service';
 
 const isStaff = (level?: string | null) => ['moderator', 'super_admin'].includes(level ?? '');
 const normalizeCategory = (cat?: string | null) => (cat === 'Rencontre' ? 'Rencontre adulte' : cat ?? 'Autre');
@@ -25,6 +26,7 @@ export class ForumService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tokens: TokenService,
+    private readonly plan: PlanService,
   ) {}
 
   private async enforcePublishRestriction(userId: string) {
@@ -70,9 +72,10 @@ export class ForumService {
         { body: { contains: search, mode: 'insensitive' } },
       ];
     }
+    const now = new Date();
     const topics = await this.prisma.forumTopic.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ isBoosted: 'desc' }, { createdAt: 'desc' }],
       take: 100,
       select: {
         id: true,
@@ -82,7 +85,11 @@ export class ForumService {
         region: true,
         photos: true,
         createdAt: true,
-        author: { select: { id: true, displayName: true, trustLevel: true } },
+        isBoosted: true,
+        boostExpiresAt: true,
+        isFeatured: true,
+        featuredExpiresAt: true,
+        author: { select: { id: true, displayName: true, trustLevel: true, plan: true } },
         _count: { select: { likes: true } },
         ...(userId ? { favorites: { where: { userId }, select: { userId: true } } } : {}),
       },
@@ -90,6 +97,8 @@ export class ForumService {
     return topics.map((t: (typeof topics)[number]) => ({
       ...t,
       category: normalizeCategory(t.category),
+      isBoosted: t.isBoosted && (!t.boostExpiresAt || t.boostExpiresAt > now),
+      isFeatured: t.isFeatured && (!t.featuredExpiresAt || t.featuredExpiresAt > now),
       isFavorited: userId ? ((t as { favorites?: { userId: string }[] }).favorites?.length ?? 0) > 0 : false,
       favorites: undefined,
     }));
@@ -203,8 +212,9 @@ export class ForumService {
   }) {
     const category = normalizeCategory(input.category ?? 'Autre');
 
-    // Gate announcements behind profile completion >= 60%
+    // Gate announcements behind profile completion >= 60% and plan limit
     if (input.isAnnouncement) {
+      await this.plan.checkAnnouncementLimit(input.authorId);
       const restriction = await this.enforcePublishRestriction(input.authorId);
       if (restriction?.publishRestrictedUntil && restriction.publishRestrictedUntil > new Date()) {
         throw new BadRequestException(

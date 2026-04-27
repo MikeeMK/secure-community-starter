@@ -32,13 +32,19 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const nextTarget = normalizeAgeGateRedirectTarget(formData?.get('next')?.toString());
 
   if (decision === 'accept') {
-    const response = NextResponse.redirect(new URL(nextTarget, request.url));
+    const url = request.nextUrl.clone();
+    url.pathname = nextTarget;
+    url.search = '';
+    const response = NextResponse.redirect(url);
     applyAgeGateCookie(response, AGE_GATE_ACCEPTED);
     return response;
   }
 
   if (decision === 'decline') {
-    const response = NextResponse.redirect(new URL('/acces-interdit', request.url));
+    const url = request.nextUrl.clone();
+    url.pathname = '/acces-interdit';
+    url.search = '';
+    const response = NextResponse.redirect(url);
     applyAgeGateCookie(response, AGE_GATE_DECLINED);
     return response;
   }

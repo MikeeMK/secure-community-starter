@@ -4,7 +4,7 @@ import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Avatar } from '../components/Avatar';
-import { TrustBadge } from '../components/Badge';
+import { TrustBadge, PlanPill } from '../components/Badge';
 import { UserProfileTrigger } from '../components/UserProfileTrigger';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
@@ -19,7 +19,7 @@ type Annonce = {
   region?: string | null;
   photos?: string[] | null;
   createdAt: string;
-  author: { id: string; displayName: string; trustLevel: string };
+  author: { id: string; displayName: string; trustLevel: string; plan?: string };
   _count: { likes: number };
   isFavorited?: boolean;
 };
@@ -262,6 +262,7 @@ export default function AnnoncesPage() {
                         <span>{a.author.displayName}</span>
                       </UserProfileTrigger>
                       <TrustBadge level={a.author.trustLevel} />
+                      <PlanPill plan={a.author.plan} />
                       <CategoryPill category={a.category} />
                       {a.region && (
                         <span style={{ fontSize: 12, color: 'var(--text-dim)', background: 'var(--surface-2)', padding: '2px 10px', borderRadius: 99, fontWeight: 600 }}>
