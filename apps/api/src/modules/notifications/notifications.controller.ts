@@ -25,7 +25,7 @@ export class NotificationsController {
     });
 
     const canAccessStaffLinks = isStaff(user.trustLevel);
-    return notifications.map((notification) => ({
+    return notifications.map((notification: typeof notifications[number]) => ({
       ...notification,
       link:
         !canAccessStaffLinks && notification.link?.startsWith('/admin/')
