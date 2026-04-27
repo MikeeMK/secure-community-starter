@@ -53,6 +53,7 @@ model User {
   trustLevel   TrustLevel @default(new)
   accountStatus UserAccountStatus @default(ACTIVE)
 
+  dateOfBirth          DateTime?
   emailVerifiedAt      DateTime?
   lastActiveAt         DateTime?
   displayNameUpdatedAt DateTime?

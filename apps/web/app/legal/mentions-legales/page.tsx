@@ -12,7 +12,7 @@ export default function PageMentionsLegales() {
           Mentions Légales
         </h1>
         <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 32 }}>
-          Dernière mise à jour : mars 2025
+          Dernière mise à jour : avril 2026
         </p>
 
         <div className="stack-lg" style={{ fontSize: 14, lineHeight: 1.8, color: 'var(--text-muted)' }}>
@@ -22,11 +22,10 @@ export default function PageMentionsLegales() {
             </h2>
             <p>
               Le présent site est édité par :<br />
-              <strong style={{ color: 'var(--text)' }}>Communauté SAS</strong><br />
-              Siège social : 12 rue de la République, 75001 Paris, France<br />
-              SIRET : 000 000 000 00000<br />
-              Capital social : 1 000 €<br />
-              Email : <span style={{ color: 'var(--primary)' }}>contact@communaute.fr</span>
+              <strong style={{ color: 'var(--text)' }}>Velentra</strong><br />
+              Siège social : France<br />
+              SIRET : [À COMPLÉTER]<br />
+              Email : <span style={{ color: 'var(--primary)' }}>contact@velentra.fr</span>
             </p>
           </section>
 
@@ -35,8 +34,8 @@ export default function PageMentionsLegales() {
               2. Directeur de la publication
             </h2>
             <p>
-              Le directeur de la publication est le représentant légal de Communauté SAS.<br />
-              Contact : <span style={{ color: 'var(--primary)' }}>direction@communaute.fr</span>
+              Le directeur de la publication est le représentant légal de Velentra (éditeur du site).<br />
+              Contact : <span style={{ color: 'var(--primary)' }}>direction@velentra.fr</span>
             </p>
           </section>
 
@@ -58,13 +57,13 @@ export default function PageMentionsLegales() {
             </h2>
             <p>
               L&apos;ensemble des contenus présents sur ce site (textes, graphismes, logos, images,
-              icônes, sons, logiciels) est la propriété exclusive de Communauté SAS, sauf mentions
+              icônes, sons, logiciels) est la propriété exclusive de Velentra, sauf mentions
               contraires. Toute reproduction, distribution, modification ou publication est interdite
               sans autorisation écrite préalable.
             </p>
             <p style={{ marginTop: 10 }}>
               Les contenus publiés par les utilisateurs restent leur propriété. En les publiant sur
-              la Plateforme, ils accordent à Communauté SAS une licence non exclusive d&apos;affichage
+              la Plateforme, ils accordent à Velentra une licence non exclusive d&apos;affichage
               et de diffusion sur la Plateforme.
             </p>
           </section>
@@ -83,7 +82,7 @@ export default function PageMentionsLegales() {
             </p>
             <p style={{ marginTop: 10 }}>
               Délégué à la Protection des Données :{' '}
-              <span style={{ color: 'var(--primary)' }}>privacy@communaute.fr</span>
+              <span style={{ color: 'var(--primary)' }}>privacy@velentra.fr</span>
             </p>
           </section>
 
@@ -107,10 +106,10 @@ export default function PageMentionsLegales() {
               7. Responsabilité
             </h2>
             <p>
-              Communauté SAS s&apos;efforce de maintenir des informations exactes et à jour. Cependant,
+              Velentra s&apos;efforce de maintenir des informations exactes et à jour. Cependant,
               elle ne saurait être tenue responsable des erreurs ou omissions, ni des dommages directs
               ou indirects résultant de l&apos;utilisation du site. Les liens hypertextes vers des sites
-              tiers sont fournis à titre informatif ; Communauté SAS n&apos;assume aucune responsabilité
+              tiers sont fournis à titre informatif ; Velentra n&apos;assume aucune responsabilité
               quant à leur contenu.
             </p>
           </section>

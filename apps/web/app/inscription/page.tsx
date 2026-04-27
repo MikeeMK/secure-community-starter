@@ -27,10 +27,17 @@ export default function PageInscription() {
   const [email, setEmail] = React.useState('');
   const [nomAffiche, setNomAffiche] = React.useState('');
   const [motDePasse, setMotDePasse] = React.useState('');
+  const [dateNaissance, setDateNaissance] = React.useState('');
   const [chargement, setChargement] = React.useState(false);
   const [erreur, setErreur] = React.useState<string | null>(null);
   const [captchaToken, setCaptchaToken] = React.useState<string | null>(null);
   const [captchaReset, setCaptchaReset] = React.useState(0);
+
+  const maxDate = React.useMemo(() => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 18);
+    return d.toISOString().split('T')[0];
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -47,6 +54,7 @@ export default function PageInscription() {
           email,
           displayName: nomAffiche,
           password: motDePasse,
+          dateOfBirth: dateNaissance,
           turnstileToken: captchaToken ?? undefined,
         }),
       });
@@ -154,6 +162,21 @@ export default function PageInscription() {
               placeholder="vous@exemple.com"
               autoComplete="email"
             />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="dateNaissance">Date de naissance</label>
+            <input
+              id="dateNaissance"
+              type="date"
+              className="form-input"
+              value={dateNaissance}
+              onChange={(e) => setDateNaissance(e.target.value)}
+              required
+              max={maxDate}
+              autoComplete="bday"
+            />
+            <span className="form-hint">Vous devez avoir 18 ans ou plus pour vous inscrire.</span>
           </div>
 
           <div className="form-group">

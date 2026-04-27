@@ -12,7 +12,7 @@ export default function PageCGU() {
           Conditions Générales d&apos;Utilisation
         </h1>
         <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 32 }}>
-          Dernière mise à jour : mars 2025
+          Dernière mise à jour : avril 2026
         </p>
 
         <div className="stack-lg" style={{ fontSize: 14, lineHeight: 1.8, color: 'var(--text-muted)' }}>
@@ -22,7 +22,7 @@ export default function PageCGU() {
             </h2>
             <p>
               Les présentes Conditions Générales d&apos;Utilisation (ci-après «&nbsp;CGU&nbsp;») régissent l&apos;accès et l&apos;utilisation
-              de la plateforme Communauté (ci-après «&nbsp;la Plateforme&nbsp;»). En accédant à la Plateforme, vous acceptez
+              de la plateforme Velentra (ci-après «&nbsp;la Plateforme&nbsp;»). En accédant à la Plateforme, vous acceptez
               sans réserve les présentes CGU.
             </p>
           </section>
@@ -102,7 +102,7 @@ export default function PageCGU() {
             </h2>
             <p>
               Pour toute question relative aux présentes CGU, contactez-nous à l&apos;adresse :
-              <span style={{ color: 'var(--primary)', marginLeft: 6 }}>legal@communaute.fr</span>
+              <span style={{ color: 'var(--primary)', marginLeft: 6 }}>legal@velentra.fr</span>
             </p>
           </section>
         </div>

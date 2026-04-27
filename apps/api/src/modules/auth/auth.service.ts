@@ -167,10 +167,24 @@ export class AuthService {
     email: string,
     displayName: string,
     password: string,
+    dateOfBirth: string,
     turnstileToken: string | undefined,
     remoteIp?: string,
   ) {
     const normalizedEmail = this.normalizeEmail(email);
+
+    // Verify age (must be 18+)
+    const dob = new Date(dateOfBirth);
+    if (isNaN(dob.getTime())) {
+      throw new BadRequestException('Date de naissance invalide.');
+    }
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const m = today.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+    if (age < 18) {
+      throw new BadRequestException('Vous devez avoir 18 ans ou plus pour vous inscrire.');
+    }
 
     // Verify Turnstile captcha (skipped automatically in dev when no secret is configured)
     await this.captcha.verify(turnstileToken, remoteIp);
@@ -194,7 +208,7 @@ export class AuthService {
     const passwordHash = await hashPassword(password);
 
     const user = await this.prisma.user.create({
-      data: { email: normalizedEmail, displayName, trustLevel: 'new', passwordHash },
+      data: { email: normalizedEmail, displayName, trustLevel: 'new', passwordHash, dateOfBirth: dob },
       select: safeUserSelect,
     });
 

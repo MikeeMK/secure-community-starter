@@ -21,7 +21,7 @@ const RegisterDto = z.object({
   email: z.string().email(),
   displayName: z.string().min(2).max(32),
   password: z.string().min(8).max(128),
-  // Optional: enforced by captcha.service when CLOUDFLARE_TURNSTILE_SECRET is set
+  dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format de date invalide (YYYY-MM-DD)'),
   turnstileToken: z.string().optional(),
 });
 
@@ -50,8 +50,8 @@ export class AuthController {
     if (!result.success) {
       throw new BadRequestException(result.error.flatten().fieldErrors);
     }
-    const { email, displayName, password, turnstileToken } = result.data;
-    return this.auth.register(email, displayName, password, turnstileToken, req.ip);
+    const { email, displayName, password, dateOfBirth, turnstileToken } = result.data;
+    return this.auth.register(email, displayName, password, dateOfBirth, turnstileToken, req.ip);
   }
 
   @UseGuards(ThrottlerGuard)

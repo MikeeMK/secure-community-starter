@@ -12,7 +12,7 @@ export default function PageConfidentialite() {
           Politique de Confidentialité
         </h1>
         <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 32 }}>
-          Dernière mise à jour : mars 2025
+          Dernière mise à jour : avril 2026
         </p>
 
         <div className="stack-lg" style={{ fontSize: 14, lineHeight: 1.8, color: 'var(--text-muted)' }}>
@@ -23,6 +23,7 @@ export default function PageConfidentialite() {
             <p>Nous collectons les données suivantes lors de votre inscription et utilisation :</p>
             <ul style={{ paddingLeft: 20, marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
               <li>Adresse e-mail (obligatoire, non affichée publiquement)</li>
+              <li>Date de naissance (vérification de majorité, non affichée publiquement)</li>
               <li>Nom d&apos;affichage (pseudo public)</li>
               <li>Contenus publiés (sujets, messages, réponses)</li>
               <li>Données de connexion (date, horodatage)</li>
@@ -58,7 +59,7 @@ export default function PageConfidentialite() {
               4. Sécurité
             </h2>
             <p>
-              Vos mots de passe sont hashés et salés (PBKDF2). Nous utilisons HTTPS pour toutes
+              Vos mots de passe sont hashés et salés (Argon2id). Nous utilisons HTTPS pour toutes
               les communications. L&apos;accès aux données est restreint au personnel autorisé.
             </p>
           </section>
@@ -77,7 +78,7 @@ export default function PageConfidentialite() {
             </ul>
             <p style={{ marginTop: 10 }}>
               Pour exercer ces droits, contactez :
-              <span style={{ color: 'var(--primary)', marginLeft: 6 }}>privacy@communaute.fr</span>
+              <span style={{ color: 'var(--primary)', marginLeft: 6 }}>privacy@velentra.fr</span>
             </p>
           </section>
 
