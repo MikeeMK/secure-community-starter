@@ -46,7 +46,7 @@ function timeAgo(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 }
 
-export default function MessageriePage() {
+function MessageriePage() {
   const { utilisateur } = useAuth();
   const searchParams = useSearchParams();
   const [tab, setTab] = React.useState<'messages' | 'notifications'>('messages');
@@ -419,5 +419,13 @@ export default function MessageriePage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <React.Suspense fallback={<div className="loading-text">Chargement…</div>}>
+      <MessageriePage />
+    </React.Suspense>
   );
 }
