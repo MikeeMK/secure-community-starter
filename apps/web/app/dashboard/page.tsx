@@ -44,7 +44,19 @@ const navItems = [
   { icon: '⚙️', label: 'Paramètres', href: '/compte' },
 ];
 
-const ANNOUNCEMENT_CATEGORIES = ['Amitié', 'Activités', 'Rencontre adulte', 'Autre'] as const;
+const ANNOUNCEMENT_CATEGORIES = [
+  'Rencontre Hétéro',
+  'Rencontre Gay',
+  'Rencontre Lesbienne',
+  'Rencontre Bi',
+  'Rencontre Couple',
+  'Amitié',
+  'Activités & Sorties',
+  'Vente',
+  'Services',
+  'Location',
+  'Autre',
+] as const;
 const ANNOUNCEMENT_STEPS = ['cadre', 'contenu', 'photos'] as const;
 
 export default function DashboardPage() {

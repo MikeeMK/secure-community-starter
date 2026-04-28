@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Request, UseGuards } from '@nestjs/common';
 import { z } from 'zod';
 import type { Request as ExpressRequest } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -43,5 +43,18 @@ export class ProfileController {
   async listMembers(@Request() req: ExpressRequest) {
     const user = req.user as AuthUser;
     return this.profileService.listMembers(user.id);
+  }
+
+  @Post('/album')
+  async addAlbumPhoto(@Body() body: unknown, @Request() req: ExpressRequest) {
+    const user = req.user as AuthUser;
+    const { photo } = z.object({ photo: z.string().min(1) }).parse(body);
+    return this.profileService.addAlbumPhoto(user.id, photo);
+  }
+
+  @Delete('/album/:index')
+  async removeAlbumPhoto(@Param('index') index: string, @Request() req: ExpressRequest) {
+    const user = req.user as AuthUser;
+    return this.profileService.removeAlbumPhoto(user.id, parseInt(index, 10));
   }
 }

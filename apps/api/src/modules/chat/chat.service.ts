@@ -49,31 +49,6 @@ export class ChatService {
       select: { id: true },
     });
 
-    // Notify the target user
-    const initiator = await this.prisma.user.findUnique({
-      where: { id: initiatorId },
-      select: { displayName: true },
-    });
-
-    let message = `${initiator?.displayName ?? 'Quelqu\'un'} veut vous contacter`;
-    if (announcementId) {
-      const topic = await this.prisma.forumTopic.findUnique({
-        where: { id: announcementId },
-        select: { title: true },
-      });
-      if (topic) message += ` via votre annonce "${topic.title}"`;
-    }
-
-    await this.prisma.notification.create({
-      data: {
-        userId: targetId,
-        title: 'Nouvelle demande de contact',
-        content: message,
-        message,
-        link: `/messages?conv=${conv.id}`,
-      },
-    });
-
     return { conversationId: conv.id, created: true };
   }
 
@@ -96,11 +71,22 @@ export class ChatService {
       },
     });
 
+    // Fetch announcement titles for conversations that have one
+    const announcementIds = [...new Set(convs.map((c) => c.announcementId).filter(Boolean))] as string[];
+    const announcements = announcementIds.length
+      ? await this.prisma.forumTopic.findMany({
+          where: { id: { in: announcementIds } },
+          select: { id: true, title: true },
+        })
+      : [];
+    const announcementMap = new Map(announcements.map((a) => [a.id, a]));
+
     return convs.map((c: (typeof convs)[number]) => {
       const other = c.user1.id === userId ? c.user2 : c.user1;
       const lastMsg = c.messages[0] ?? null;
       const unread = c.messages.filter((m: (typeof c.messages)[number]) => !m.read && m.senderId !== userId).length;
-      return { id: c.id, announcementId: c.announcementId, other, lastMsg, unread };
+      const announcement = c.announcementId ? (announcementMap.get(c.announcementId) ?? null) : null;
+      return { id: c.id, announcementId: c.announcementId, announcement, other, lastMsg, unread };
     });
   }
 

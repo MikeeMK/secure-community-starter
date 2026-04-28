@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TokenService } from '../tokens/token.service';
+import { PlanService } from '../plan/plan.service';
 import {
   normalizeLookingForValues,
   normalizeProfileRecord,
@@ -20,6 +21,7 @@ const PROFILE_SELECT = {
   ageMax: true,
   interests: true,
   bio: true,
+  albumPhotos: true,
   updatedAt: true,
 };
 
@@ -43,6 +45,7 @@ export class ProfileService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tokens: TokenService,
+    private readonly plan: PlanService,
   ) {}
 
   async getMyProfile(userId: string) {
@@ -127,6 +130,45 @@ export class ProfileService {
     if (!completionUnlocked && pct >= 100) this.tokens.awardProfileCompletion(userId).catch(() => {});
 
     return normalizeProfileRecord(profile);
+  }
+
+  async addAlbumPhoto(userId: string, photoBase64: string): Promise<string[]> {
+    const { plan } = await this.plan.getUserPlan(userId);
+    if (plan === 'free') {
+      throw new BadRequestException("L'album photo est reservé aux abonnés Plus et Premium.");
+    }
+    const maxPhotos = plan === 'premium' ? 20 : 10;
+    const existing = await this.prisma.userProfile.findUnique({
+      where: { userId },
+      select: { albumPhotos: true },
+    });
+    const current = existing?.albumPhotos ?? [];
+    if (current.length >= maxPhotos) {
+      throw new BadRequestException(`Vous avez atteint la limite de ${maxPhotos} photos.`);
+    }
+    const updated = await this.prisma.userProfile.upsert({
+      where: { userId },
+      create: { userId, albumPhotos: [photoBase64] },
+      update: { albumPhotos: { push: photoBase64 } },
+      select: { albumPhotos: true },
+    });
+    return updated.albumPhotos;
+  }
+
+  async removeAlbumPhoto(userId: string, index: number): Promise<string[]> {
+    const existing = await this.prisma.userProfile.findUnique({
+      where: { userId },
+      select: { albumPhotos: true },
+    });
+    if (!existing) return [];
+    const photos = [...existing.albumPhotos];
+    photos.splice(index, 1);
+    const updated = await this.prisma.userProfile.update({
+      where: { userId },
+      data: { albumPhotos: photos },
+      select: { albumPhotos: true },
+    });
+    return updated.albumPhotos;
   }
 
   async listMembers(excludeUserId: string) {

@@ -130,6 +130,7 @@ model UserProfile {
   ageMax             Int?
   interests          String[] @default([])
   bio                String?
+  albumPhotos        String[] @default([])
   updatedAt          DateTime @updatedAt
 
   userId String @unique

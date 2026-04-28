@@ -225,7 +225,7 @@ img { display: block; max-width: 100%; }
 
 .page-content {
   flex: 1;
-  max-width: 1280px;
+  max-width: 1520px;
   margin: 0 auto;
   width: 100%;
   padding: 40px 28px 64px;
@@ -2748,10 +2748,10 @@ html.dark .member-card:hover {
    ============================================================ */
 .dashboard-layout {
   display: grid;
-  grid-template-columns: 240px 1fr 300px;
-  gap: 28px;
+  grid-template-columns: 240px 1fr 320px;
+  gap: 32px;
   align-items: start;
-  max-width: 1400px;
+  max-width: 1480px;
   margin: 0 auto;
 }
 

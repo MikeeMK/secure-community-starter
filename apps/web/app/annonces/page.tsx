@@ -24,14 +24,34 @@ type Annonce = {
   isFavorited?: boolean;
 };
 
-const CATEGORIES = ['Toutes', 'Amitié', 'Activités', 'Rencontre adulte', 'Autre'] as const;
+const CATEGORIES = [
+  'Toutes',
+  'Rencontre Hétéro',
+  'Rencontre Gay',
+  'Rencontre Lesbienne',
+  'Rencontre Bi',
+  'Rencontre Couple',
+  'Amitié',
+  'Activités & Sorties',
+  'Vente',
+  'Services',
+  'Location',
+  'Autre',
+] as const;
 type CategoryFilter = (typeof CATEGORIES)[number];
 
 const CATEGORY_COLORS: Record<string, string> = {
-  Amitié: '#3b82f6',
-  Activités: '#10b981',
-  'Rencontre adulte': '#ef4444',
-  Autre: '#8b5cf6',
+  'Rencontre Hétéro':  '#e11d48',
+  'Rencontre Gay':     '#7c3aed',
+  'Rencontre Lesbienne': '#db2777',
+  'Rencontre Bi':      '#9333ea',
+  'Rencontre Couple':  '#dc2626',
+  'Amitié':            '#3b82f6',
+  'Activités & Sorties': '#10b981',
+  'Vente':             '#f59e0b',
+  'Services':          '#0891b2',
+  'Location':          '#059669',
+  'Autre':             '#8b5cf6',
 };
 
 function timeAgo(iso: string) {
@@ -60,6 +80,7 @@ function CategoryPill({ category }: { category: string }) {
 export default function AnnoncesPage() {
   const { utilisateur } = useAuth();
   const [annonces, setAnnonces] = React.useState<Annonce[] | null>(null);
+  const [hasSearched, setHasSearched] = React.useState(false);
   const [activeCategory, setActiveCategory] = React.useState<CategoryFilter>('Toutes');
   const [search, setSearch] = React.useState('');
   const [selectedRegion, setSelectedRegion] = React.useState('');
@@ -77,19 +98,24 @@ export default function AnnoncesPage() {
   // Effective region filter = dept if selected, else region
   const effectiveRegion = selectedDept || selectedRegion;
 
+  // Whether any filter is active (triggers search)
+  const hasFilter = activeCategory !== 'Toutes' || effectiveRegion !== '' || debouncedSearch.trim() !== '';
+
   React.useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 400);
     return () => clearTimeout(t);
   }, [search]);
 
   React.useEffect(() => {
+    if (!hasFilter) return; // Don't load until user applies a filter
+    setHasSearched(true);
     const params = new URLSearchParams();
     if (activeCategory !== 'Toutes') params.set('category', activeCategory);
     if (effectiveRegion) params.set('region', effectiveRegion);
     if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
     const url = `/community/forum/annonces${params.toString() ? `?${params}` : ''}`;
     apiFetch<Annonce[]>(url).then(setAnnonces).catch(() => setAnnonces([]));
-  }, [activeCategory, effectiveRegion, debouncedSearch]);
+  }, [activeCategory, effectiveRegion, debouncedSearch, hasFilter]);
 
   async function toggleFavorite(e: React.MouseEvent, id: string) {
     e.preventDefault();
@@ -203,9 +229,37 @@ export default function AnnoncesPage() {
         </div>
       )}
 
-      {!annonces && <p className="loading-text" style={{ fontSize: 16 }}>Chargement…</p>}
+      {/* Invitation à chercher (état initial) */}
+      {!hasSearched && (
+        <div className="card" style={{ textAlign: 'center', padding: '64px 32px' }}>
+          <div style={{ fontSize: 52, marginBottom: 16 }}>🔍</div>
+          <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 10 }}>Recherchez une annonce</h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: 15, maxWidth: 420, margin: '0 auto 24px', lineHeight: 1.6 }}>
+            Choisissez une catégorie, une région ou tapez un mot-clé pour afficher les annonces correspondantes.
+          </p>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+            {CATEGORIES.filter((c) => c !== 'Toutes').slice(0, 6).map((cat) => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setActiveCategory(cat as CategoryFilter)}
+                style={{
+                  padding: '8px 16px', borderRadius: 99, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                  background: `${CATEGORY_COLORS[cat] ?? '#8b5cf6'}18`,
+                  color: CATEGORY_COLORS[cat] ?? '#8b5cf6',
+                  border: `1px solid ${CATEGORY_COLORS[cat] ?? '#8b5cf6'}40`,
+                }}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
-      {annonces && annonces.length === 0 && (
+      {hasSearched && !annonces && <p className="loading-text" style={{ fontSize: 16 }}>Chargement…</p>}
+
+      {hasSearched && annonces && annonces.length === 0 && (
         <div className="card" style={{ textAlign: 'center', padding: '64px 32px' }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>📢</div>
           <p style={{ color: 'var(--text-muted)', marginBottom: 20, fontSize: 16 }}>Aucune annonce pour ces critères.</p>
@@ -213,7 +267,7 @@ export default function AnnoncesPage() {
         </div>
       )}
 
-      {annonces && annonces.length > 0 && (
+      {hasSearched && annonces && annonces.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {annonces.map((a) => (
             <Link key={a.id} href={`/annonces/${a.id}`} style={{ textDecoration: 'none' }}>

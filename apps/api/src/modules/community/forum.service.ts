@@ -4,7 +4,7 @@ import { TokenService } from '../tokens/token.service';
 import { PlanService } from '../plan/plan.service';
 
 const isStaff = (level?: string | null) => ['moderator', 'super_admin'].includes(level ?? '');
-const normalizeCategory = (cat?: string | null) => (cat === 'Rencontre' ? 'Rencontre adulte' : cat ?? 'Autre');
+const normalizeCategory = (cat?: string | null) => cat ?? 'Autre';
 
 function calcProfileCompletion(emailVerifiedAt: Date | null, p: Record<string, unknown> | null): number {
   const checks = [

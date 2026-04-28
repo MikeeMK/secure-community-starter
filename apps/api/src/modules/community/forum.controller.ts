@@ -19,7 +19,19 @@ import { ForumService } from './forum.service';
 
 type AuthUser = { id: string; email: string; trustLevel: string };
 
-const ANNOUNCEMENT_CATEGORIES = ['Amitié', 'Activités', 'Rencontre adulte', 'Autre'] as const;
+const ANNOUNCEMENT_CATEGORIES = [
+  'Rencontre Hétéro',
+  'Rencontre Gay',
+  'Rencontre Lesbienne',
+  'Rencontre Bi',
+  'Rencontre Couple',
+  'Amitié',
+  'Activités & Sorties',
+  'Vente',
+  'Services',
+  'Location',
+  'Autre',
+] as const;
 
 const CreateTopicDto = z.object({
   title: z.string().min(3).max(120),

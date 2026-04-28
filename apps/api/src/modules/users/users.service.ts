@@ -32,6 +32,7 @@ export class UsersService {
             interactionType: true,
             interests: true,
             bio: true,
+            albumPhotos: true,
           },
         },
         forumTopics: {

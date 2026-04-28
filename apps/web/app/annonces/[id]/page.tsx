@@ -3,7 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { Avatar } from '../../components/Avatar';
 import { TrustBadge, PlanPill } from '../../components/Badge';
 import { RichContent } from '../../components/RichContent';
@@ -41,6 +41,7 @@ function formaterDate(iso: string) {
 
 export default function AnnonceDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const { utilisateur, estAuthentifie } = useAuth();
 
   const [annonce, setAnnonce] = React.useState<Annonce | null>(null);
@@ -57,6 +58,9 @@ export default function AnnonceDetailPage() {
   const [reportNote, setReportNote] = React.useState('');
   const [reportSent, setReportSent] = React.useState(false);
   const [reporting, setReporting] = React.useState(false);
+  const [composeOpen, setComposeOpen] = React.useState(false);
+  const [composeMessage, setComposeMessage] = React.useState('');
+  const [composeSending, setComposeSending] = React.useState(false);
   const [boosted, setBoosted] = React.useState(false);
   const [featured, setFeatured] = React.useState(false);
   const [boostLoading, setBoostLoading] = React.useState(false);
@@ -131,9 +135,32 @@ export default function AnnonceDetailPage() {
       window.dispatchEvent(new CustomEvent('open-chat', { detail: { conversationId: res.conversationId } }));
       setChatStarted(true);
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Impossible d’ouvrir la conversation pour le moment.');
+      alert(e instanceof Error ? e.message : "Impossible d'ouvrir la conversation pour le moment.");
     } finally {
       setChatLoading(false);
+    }
+  }
+
+  async function handleSendMessage(e: React.FormEvent) {
+    e.preventDefault();
+    if (!annonce || !composeMessage.trim()) return;
+    setComposeSending(true);
+    try {
+      const { conversationId } = await apiFetch<{ conversationId: string }>('/chat/start', {
+        method: 'POST',
+        body: JSON.stringify({ targetUserId: annonce.author.id, announcementId: id }),
+      });
+      await apiFetch(`/chat/${conversationId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ content: composeMessage.trim() }),
+      });
+      setComposeOpen(false);
+      setComposeMessage('');
+      router.push(`/messagerie?conv=${conversationId}`);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Envoi impossible pour le moment.');
+    } finally {
+      setComposeSending(false);
     }
   }
 
@@ -339,10 +366,9 @@ export default function AnnonceDetailPage() {
             {!isOwn && estAuthentifie && (
               <button
                 className="btn btn-primary btn-sm"
-                onClick={handleChat}
-                disabled={chatLoading || chatStarted}
+                onClick={() => setComposeOpen(true)}
               >
-                {chatStarted ? 'Message envoyé ✓' : chatLoading ? 'Connexion…' : '💬 Contacter par chat'}
+                ✉️ Envoyer un message
               </button>
             )}
 
@@ -408,6 +434,89 @@ export default function AnnonceDetailPage() {
             sizes="90vw"
             style={{ maxWidth: '90vw', maxHeight: '90vh', width: 'auto', height: 'auto', borderRadius: 12, boxShadow: '0 20px 60px rgba(0,0,0,0.35)' }}
           />
+        </div>
+      )}
+
+      {composeOpen && annonce && (
+        <div
+          onClick={() => setComposeOpen(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1300,
+            background: 'rgba(7,11,18,0.76)', backdropFilter: 'blur(10px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+          }}
+        >
+          <div
+            className="card"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Envoyer un message"
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: 'min(100%, 520px)', padding: 24, borderRadius: 24, boxShadow: '0 32px 90px rgba(0,0,0,0.4)' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--primary)', marginBottom: 6 }}>
+                  Nouveau message
+                </div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)' }}>Contacter {annonce.author.displayName}</div>
+              </div>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setComposeOpen(false)}
+                style={{ width: 36, height: 36, flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 999 }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 600 }}>À</div>
+              <div style={{
+                padding: '9px 12px', borderRadius: 'var(--radius-sm)',
+                background: 'var(--surface-2)', border: '1px solid var(--border)',
+                fontSize: 14, color: 'var(--text)', fontWeight: 600,
+              }}>
+                {annonce.author.displayName}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 600 }}>Objet</div>
+              <div style={{
+                padding: '9px 12px', borderRadius: 'var(--radius-sm)',
+                background: 'var(--surface-2)', border: '1px solid var(--border)',
+                fontSize: 14, color: 'var(--text-muted)',
+              }}>
+                Re: {annonce.title}
+              </div>
+            </div>
+
+            <form onSubmit={handleSendMessage}>
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4, fontWeight: 600 }}>Message</div>
+                <textarea
+                  className="form-input"
+                  rows={5}
+                  placeholder="Écrivez votre message…"
+                  value={composeMessage}
+                  onChange={(e) => setComposeMessage(e.target.value)}
+                  style={{ resize: 'vertical', width: '100%' }}
+                  autoFocus
+                  disabled={composeSending}
+                />
+              </div>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                style={{ width: '100%', fontWeight: 700 }}
+                disabled={composeSending || !composeMessage.trim()}
+              >
+                {composeSending ? 'Envoi en cours…' : 'Envoyer le message'}
+              </button>
+            </form>
+          </div>
         </div>
       )}
 
@@ -489,22 +598,18 @@ export default function AnnonceDetailPage() {
                   }}
                 >
                   <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4, minWidth: 0 }}>
-                    <span style={{ fontSize: 15, fontWeight: 700 }}>Voir le profil de l’auteur</span>
+                    <span style={{ fontSize: 15, fontWeight: 700 }}>Voir le profil de l'auteur</span>
                     <span style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'left', lineHeight: 1.5 }}>
                       Ouvrez directement le profil de ce membre pour voir ses infos et ses autres actions.
                     </span>
                   </span>
                 </Link>
 
-                {!isOwn && (
+                {!isOwn && estAuthentifie && (
                 <button
                   type="button"
                   className="btn btn-ghost btn-sm"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    void handleChat();
-                  }}
-                  disabled={!estAuthentifie || chatLoading}
+                  onClick={() => { setMenuOpen(false); setComposeOpen(true); }}
                   style={{
                     minWidth: 0,
                     minHeight: 74,
@@ -519,11 +624,9 @@ export default function AnnonceDetailPage() {
                   }}
                 >
                   <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4, minWidth: 0 }}>
-                    <span style={{ fontSize: 15, fontWeight: 700 }}>
-                      {chatStarted ? 'Conversation ouverte' : 'Envoyer un message'}
-                    </span>
+                    <span style={{ fontSize: 15, fontWeight: 700 }}>Envoyer un message</span>
                     <span style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'left', whiteSpace: 'normal', lineHeight: 1.5 }}>
-                      {estAuthentifie ? 'Contactez directement l’auteur depuis la messagerie.' : 'Connectez-vous pour écrire à l’auteur.'}
+                      Contactez directement l'auteur depuis la messagerie.
                     </span>
                   </span>
                 </button>
@@ -613,7 +716,7 @@ export default function AnnonceDetailPage() {
                   Action staff
                 </div>
                 <div style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--text-muted)', marginBottom: 12 }}>
-                  Cette action retire immédiatement l’annonce du site. Utilisez-la seulement si une intervention staff est nécessaire.
+                  Cette action retire immédiatement l'annonce du site. Utilisez-la seulement si une intervention staff est nécessaire.
                 </div>
                 <button
                   className="btn btn-danger btn-sm"

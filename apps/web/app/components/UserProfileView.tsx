@@ -29,6 +29,7 @@ export type UserProfileViewData = {
     interactionType?: string[];
     interests?: string[];
     bio?: string | null;
+    albumPhotos?: string[];
   } | null;
   forumTopics: { id: string; title: string; createdAt: string }[];
   forumPosts: { id: string; body: string; createdAt: string; topic: { id: string; title: string } }[];
@@ -159,7 +160,6 @@ export function UserProfileView({
   onClose,
 }: UserProfileViewProps) {
   const { estAuthentifie } = useAuth();
-  const [activeTab, setActiveTab] = React.useState<'topics' | 'posts'>('topics');
   const [actionsOpen, setActionsOpen] = React.useState(false);
   const [reportReason, setReportReason] = React.useState<(typeof USER_REPORT_REASONS)[number]>('Comportement inapproprié');
   const [reportNote, setReportNote] = React.useState('');
@@ -784,75 +784,28 @@ export function UserProfileView({
         </section>
       </div>
 
-      <div className="card" style={{ marginTop: 18 }}>
-        <div style={{ display: 'flex', gap: 6, marginBottom: 18, borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            onClick={() => setActiveTab('topics')}
-            className={`btn btn-sm ${activeTab === 'topics' ? 'btn-primary' : 'btn-ghost'}`}
-            style={{ borderRadius: '6px 6px 0 0' }}
-          >
-            Sujets ({profile.forumTopics.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('posts')}
-            className={`btn btn-sm ${activeTab === 'posts' ? 'btn-primary' : 'btn-ghost'}`}
-            style={{ borderRadius: '6px 6px 0 0' }}
-          >
-            Réponses ({profile.forumPosts.length})
-          </button>
+      {/* Album photo */}
+      {(profile.profile?.albumPhotos?.length ?? 0) > 0 && (
+        <div className="card" style={{ marginTop: 18 }}>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+            📸 Album photo
+            <span style={{
+              fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 99,
+              background: 'rgba(124,58,237,0.12)', color: '#7c3aed', border: '1px solid rgba(124,58,237,0.25)',
+            }}>
+              {profile.profile!.albumPhotos!.length} photo{profile.profile!.albumPhotos!.length > 1 ? 's' : ''}
+            </span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10 }}>
+            {profile.profile!.albumPhotos!.map((src, i) => (
+              <div key={src + i} style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', aspectRatio: '1', background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                <Image src={src} alt={`Photo ${i + 1}`} fill unoptimized sizes="160px" style={{ objectFit: 'cover', display: 'block' }} />
+              </div>
+            ))}
+          </div>
         </div>
+      )}
 
-        {activeTab === 'topics' && (
-          <div className="stack-sm">
-            {profile.forumTopics.length === 0 && (
-              <div className="empty-state">
-                <span className="empty-state-icon">💬</span>
-                <p>Aucun sujet publié pour l'instant.</p>
-              </div>
-            )}
-            {profile.forumTopics.map((topic) => (
-              <Link key={topic.id} href={`/forum/${topic.id}`} onClick={onClose} style={{ textDecoration: 'none' }}>
-                <div className="topic-item">
-                  <div style={{ flex: 1 }}>
-                    <div className="topic-title">{topic.title}</div>
-                    <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                      {formatShortDate(topic.createdAt)}
-                    </span>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-
-        {activeTab === 'posts' && (
-          <div className="stack-sm">
-            {profile.forumPosts.length === 0 && (
-              <div className="empty-state">
-                <span className="empty-state-icon">📝</span>
-                <p>Aucune réponse publiée pour l'instant.</p>
-              </div>
-            )}
-            {profile.forumPosts.map((post) => (
-              <Link key={post.id} href={`/forum/${post.topic.id}`} onClick={onClose} style={{ textDecoration: 'none', color: 'inherit' }}>
-                <div className="post-item" style={{ flexDirection: 'column', gap: 6 }}>
-                  <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                    Réponse dans <span style={{ fontWeight: 700 }}>{post.topic.title}</span>
-                  </div>
-                  <p className="post-body" style={{ fontSize: 14 }}>
-                    {(() => {
-                      const preview = toPlainTextPreview(post.body);
-                      return preview.length > 220 ? `${preview.slice(0, 220)}...` : preview;
-                    })()}
-                  </p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }
