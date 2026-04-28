@@ -6,6 +6,14 @@ import { PlanService } from '../plan/plan.service';
 const isStaff = (level?: string | null) => ['moderator', 'super_admin'].includes(level ?? '');
 const normalizeCategory = (cat?: string | null) => cat ?? 'Autre';
 
+const RENCONTRE_CATEGORIES = [
+  'Rencontre Hétéro',
+  'Rencontre Gay',
+  'Rencontre Lesbienne',
+  'Rencontre Bi',
+  'Rencontre Couple',
+];
+
 function calcProfileCompletion(emailVerifiedAt: Date | null, p: Record<string, unknown> | null): number {
   const checks = [
     !!emailVerifiedAt,
@@ -223,21 +231,23 @@ export class ForumService {
             : 'Vous ne pouvez pas publier pour le moment.',
         );
       }
-      const user = await this.prisma.user.findUnique({
-        where: { id: input.authorId },
-        select: {
-          emailVerifiedAt: true,
-          profile: { select: { age: true, city: true, gender: true, orientation: true, bio: true, interests: true, lookingFor: true } },
-        },
-      });
-      const completionUnlocked = await this.tokens.hasProfileCompletionUnlocked(input.authorId);
-      const pct = completionUnlocked
-        ? 100
-        : calcProfileCompletion(user?.emailVerifiedAt ?? null, user?.profile as Record<string, unknown> | null);
-      if (pct < 60) {
-        throw new BadRequestException(
-          `Votre profil doit être complété à au moins 60% pour publier une annonce (actuellement ${pct}%). Complétez votre profil et réessayez.`,
-        );
+      if (RENCONTRE_CATEGORIES.includes(category)) {
+        const user = await this.prisma.user.findUnique({
+          where: { id: input.authorId },
+          select: {
+            emailVerifiedAt: true,
+            profile: { select: { age: true, city: true, gender: true, orientation: true, bio: true, interests: true, lookingFor: true } },
+          },
+        });
+        const completionUnlocked = await this.tokens.hasProfileCompletionUnlocked(input.authorId);
+        const pct = completionUnlocked
+          ? 100
+          : calcProfileCompletion(user?.emailVerifiedAt ?? null, user?.profile as Record<string, unknown> | null);
+        if (pct < 60) {
+          throw new BadRequestException(
+            `Votre profil doit être complété à au moins 60% pour publier une annonce de rencontre (actuellement ${pct}%). Complétez votre profil et réessayez.`,
+          );
+        }
       }
     }
 

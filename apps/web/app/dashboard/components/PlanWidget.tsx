@@ -74,8 +74,8 @@ export function PlanWidget({ trustLevel }: { trustLevel: string }) {
           <>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
               {[
-                { plan: 'Plus', price: '4,99€/mois', color: '#6366f1', icon: '⭐', perks: '2 annonces · 5 photos · Badge' },
-                { plan: 'Premium', price: '9,99€/mois', color: '#7c3aed', icon: '💎', perks: '3 annonces · 8 photos · Boost' },
+                { plan: 'Plus', price: '5,99€/mois', color: '#6366f1', icon: '⭐', perks: '3 annonces · Album photo · Badge' },
+                { plan: 'Premium', price: '9,99€/mois', color: '#7c3aed', icon: '💎', perks: '5 annonces · Album 20 photos · Boost' },
               ].map((p) => (
                 <div key={p.plan} style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,

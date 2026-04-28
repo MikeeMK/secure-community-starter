@@ -46,10 +46,39 @@ function timeAgo(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 }
 
+type ModChat = {
+  id: string;
+  status: string;
+  createdAt: string;
+  closedAt: string | null;
+  reportId: string;
+  staff: { id: string; displayName: string };
+  messages: { content: string; createdAt: string; senderId: string; read: boolean }[];
+};
+
+type ModChatMsg = {
+  id: string;
+  content: string;
+  read: boolean;
+  createdAt: string;
+  sender: { id: string; displayName: string; trustLevel: string };
+};
+
+type ModChatFull = {
+  id: string;
+  status: string;
+  createdAt: string;
+  closedAt: string | null;
+  reportId: string;
+  staff: { id: string; displayName: string; trustLevel: string };
+  reporter: { id: string; displayName: string };
+  messages: ModChatMsg[];
+};
+
 function MessageriePage() {
   const { utilisateur } = useAuth();
   const searchParams = useSearchParams();
-  const [tab, setTab] = React.useState<'messages' | 'notifications'>('messages');
+  const [tab, setTab] = React.useState<'messages' | 'notifications' | 'dossiers'>('messages');
 
   // Conversations
   const [convs, setConvs] = React.useState<Conversation[] | null>(null);
@@ -64,6 +93,14 @@ function MessageriePage() {
   const [notifs, setNotifs] = React.useState<Notif[] | null>(null);
   const [selectedNotifs, setSelectedNotifs] = React.useState<Set<string>>(new Set());
 
+  // Moderation chats (Dossiers tab)
+  const [modChats, setModChats] = React.useState<ModChat[] | null>(null);
+  const [activeModChatId, setActiveModChatId] = React.useState<string | null>(null);
+  const [modChatDetail, setModChatDetail] = React.useState<ModChatFull | null>(null);
+  const [modChatInput, setModChatInput] = React.useState('');
+  const [modChatSending, setModChatSending] = React.useState(false);
+  const modChatEndRef = React.useRef<HTMLDivElement>(null);
+
   // Load conversations
   React.useEffect(() => {
     apiFetch<Conversation[]>('/chat/conversations')
@@ -72,12 +109,18 @@ function MessageriePage() {
     apiFetch<Notif[]>('/notifications')
       .then((data) => setNotifs([...data].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())))
       .catch(() => setNotifs([]));
+    apiFetch<ModChat[]>('/moderation/my-chats')
+      .then(setModChats)
+      .catch(() => setModChats([]));
   }, []);
 
-  // Auto-select conversation from URL param
+  // Auto-select conversation from URL param or tab from ?tab=dossiers
   React.useEffect(() => {
     const convParam = searchParams.get('conv');
-    if (convParam) {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'dossiers') {
+      setTab('dossiers');
+    } else if (convParam) {
       setActiveConvId(convParam);
       setTab('messages');
     }
@@ -129,6 +172,43 @@ function MessageriePage() {
     }
   }
 
+  // Load mod chat detail when selected
+  React.useEffect(() => {
+    if (!activeModChatId) { setModChatDetail(null); return; }
+    const chat = modChats?.find((c) => c.id === activeModChatId);
+    if (!chat) return;
+    apiFetch<ModChatFull>(`/moderation/reports/${chat.reportId}/chat`)
+      .then((data) => {
+        if (data) setModChatDetail(data);
+      })
+      .catch(() => {});
+  }, [activeModChatId, modChats]);
+
+  React.useEffect(() => {
+    modChatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [modChatDetail?.messages]);
+
+  async function handleSendModChatMsg(e: React.FormEvent) {
+    e.preventDefault();
+    if (!modChatInput.trim() || !modChatDetail) return;
+    setModChatSending(true);
+    const content = modChatInput.trim();
+    setModChatInput('');
+    try {
+      const msg = await apiFetch<ModChatMsg>(`/moderation/chats/${modChatDetail.id}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ content }),
+      });
+      setModChatDetail((prev) => prev ? { ...prev, messages: [...prev.messages, msg] } : prev);
+      setTimeout(() => modChatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+    } catch (err) {
+      setModChatInput(content);
+      alert(err instanceof Error ? err.message : 'Envoi impossible.');
+    } finally {
+      setModChatSending(false);
+    }
+  }
+
   async function deleteSelectedNotifs() {
     const ids = Array.from(selectedNotifs);
     await Promise.all(ids.map((id) => apiFetch(`/notifications/${id}`, { method: 'DELETE' }).catch(() => {})));
@@ -139,6 +219,7 @@ function MessageriePage() {
   const activeConv = convs?.find((c) => c.id === activeConvId) ?? null;
   const totalUnread = convs?.reduce((s, c) => s + c.unread, 0) ?? 0;
   const unreadNotifs = notifs?.filter((n) => !n.read).length ?? 0;
+  const hasDossiers = (modChats?.length ?? 0) > 0;
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 16px' }}>
@@ -176,6 +257,14 @@ function MessageriePage() {
             }}>{unreadNotifs > 9 ? '9+' : unreadNotifs}</span>
           )}
         </button>
+        {(hasDossiers || tab === 'dossiers') && (
+          <button
+            className={`btn btn-sm ${tab === 'dossiers' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setTab('dossiers')}
+          >
+            🗂️ Dossiers
+          </button>
+        )}
       </div>
 
       {/* Messages tab */}
@@ -416,6 +505,113 @@ function MessageriePage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Dossiers tab */}
+      {tab === 'dossiers' && (
+        <div style={{ display: 'grid', gridTemplateColumns: activeModChatId ? '280px 1fr' : '1fr', gap: 16, minHeight: 480 }}>
+          <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', fontWeight: 700, fontSize: 15 }}>
+              Dossiers modération
+            </div>
+            {!modChats && <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-dim)', fontSize: 13 }}>Chargement…</div>}
+            {modChats?.length === 0 && (
+              <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-dim)', fontSize: 13 }}>
+                <div style={{ fontSize: 36, marginBottom: 10 }}>🗂️</div>
+                Aucun dossier pour le moment.
+              </div>
+            )}
+            {modChats?.map((c) => {
+              const lastMsg = c.messages[0] ?? null;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => setActiveModChatId(c.id)}
+                  style={{
+                    width: '100%', textAlign: 'left', border: 'none', cursor: 'pointer',
+                    padding: '14px 16px', display: 'flex', gap: 10, flexDirection: 'column',
+                    borderBottom: '1px solid var(--border)',
+                    background: activeModChatId === c.id ? 'var(--surface-2)' : 'transparent',
+                    borderLeft: activeModChatId === c.id ? '3px solid var(--primary)' : '3px solid transparent',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center', gap: 8 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>Dossier modération</div>
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, borderRadius: 99, padding: '2px 6px',
+                      background: c.status === 'OPEN' ? 'rgba(22,163,74,0.12)' : 'var(--surface-3)',
+                      color: c.status === 'OPEN' ? '#16a34a' : 'var(--text-muted)',
+                    }}>
+                      {c.status === 'OPEN' ? 'Ouvert' : 'Clôturé'}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Avec {c.staff.displayName}</div>
+                  {lastMsg && <div style={{ fontSize: 12, color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>{lastMsg.content}</div>}
+                </button>
+              );
+            })}
+          </div>
+
+          {activeModChatId && modChatDetail && (
+            <div className="card" style={{ padding: 0, display: 'grid', gridTemplateRows: 'auto 1fr auto', overflow: 'hidden' }}>
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>Discussion avec l'équipe Velentra</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                    {modChatDetail.status === 'OPEN' ? `En cours · Modérateur: ${modChatDetail.staff.displayName}` : `Clôturée le ${timeAgo(modChatDetail.closedAt ?? modChatDetail.createdAt)}`}
+                  </div>
+                </div>
+                {modChatDetail.status === 'CLOSED' && (
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', padding: '4px 8px', background: 'var(--surface-3)', borderRadius: 8 }}>Fermée</span>
+                )}
+              </div>
+
+              <div style={{ overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {modChatDetail.messages.map((msg) => {
+                  const isMine = msg.sender.id === utilisateur?.id;
+                  return (
+                    <div key={msg.id} style={{ display: 'flex', flexDirection: isMine ? 'row-reverse' : 'row', gap: 8, alignItems: 'flex-end' }}>
+                      <div style={{
+                        maxWidth: '75%',
+                        padding: '8px 14px',
+                        borderRadius: isMine ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                        background: isMine ? 'var(--accent)' : 'var(--surface-3)',
+                        color: isMine ? '#fff' : 'var(--text)',
+                        fontSize: 14,
+                        lineHeight: 1.6,
+                      }}>
+                        {msg.content}
+                        <div style={{ fontSize: 10, opacity: 0.6, marginTop: 4 }}>{timeAgo(msg.createdAt)}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div ref={modChatEndRef} />
+              </div>
+
+              {modChatDetail.status === 'OPEN' && (
+                <form onSubmit={(e) => void handleSendModChatMsg(e)} style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', display: 'flex', gap: 10 }}>
+                  <input
+                    className="input"
+                    style={{ flex: 1, fontSize: 14 }}
+                    value={modChatInput}
+                    onChange={(e) => setModChatInput(e.target.value)}
+                    placeholder="Répondre au modérateur…"
+                    disabled={modChatSending}
+                  />
+                  <button type="submit" className="btn btn-primary btn-sm" disabled={modChatSending || !modChatInput.trim()}>
+                    {modChatSending ? '…' : 'Envoyer'}
+                  </button>
+                </form>
+              )}
+              {modChatDetail.status === 'CLOSED' && (
+                <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', textAlign: 'center', fontSize: 13, color: 'var(--text-muted)' }}>
+                  Cette discussion a été clôturée par l'équipe Velentra.
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

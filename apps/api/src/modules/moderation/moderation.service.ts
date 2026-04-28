@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TokenService } from '../tokens/token.service';
 
@@ -412,6 +412,157 @@ export class ModerationService {
     });
 
     return updated;
+  }
+
+  async initiateModerationChat(reportId: string, staffId: string) {
+    const report = await this.prisma.report.findUnique({
+      where: { id: reportId },
+      select: { id: true, reporterId: true, reason: true, moderationChat: { select: { id: true, status: true } } },
+    });
+    if (!report) throw new NotFoundException('Report not found');
+
+    if (report.moderationChat) {
+      return { chatId: report.moderationChat.id, status: report.moderationChat.status, created: false };
+    }
+
+    const chat = await this.prisma.moderationChat.create({
+      data: {
+        reportId,
+        staffId,
+        reporterId: report.reporterId,
+        messages: {
+          create: {
+            senderId: staffId,
+            content:
+              "Bonjour, notre équipe examine votre signalement et souhaite obtenir des informations supplémentaires pour le traiter au mieux. Merci de répondre ici.",
+          },
+        },
+      },
+      select: { id: true, status: true },
+    });
+
+    await this.createUserNotification({
+      userId: report.reporterId,
+      title: "Un modérateur demande des précisions sur votre signalement",
+      content:
+        "Un membre de l'équipe Velentra a ouvert une discussion concernant votre signalement. Consultez l'onglet Dossiers dans votre messagerie pour répondre.",
+      link: '/messagerie?tab=dossiers',
+    });
+
+    return { chatId: chat.id, status: chat.status, created: true };
+  }
+
+  async getModerationChatByReport(reportId: string, requesterId: string) {
+    const chat = await this.prisma.moderationChat.findUnique({
+      where: { reportId },
+      select: {
+        id: true,
+        status: true,
+        createdAt: true,
+        closedAt: true,
+        reportId: true,
+        staff: { select: { id: true, displayName: true, trustLevel: true } },
+        reporter: { select: { id: true, displayName: true } },
+        messages: {
+          orderBy: { createdAt: 'asc' },
+          select: {
+            id: true,
+            content: true,
+            read: true,
+            createdAt: true,
+            sender: { select: { id: true, displayName: true, trustLevel: true } },
+          },
+        },
+      },
+    });
+    if (!chat) return null;
+
+    // Mark unread messages as read for the requester
+    await this.prisma.moderationChatMessage.updateMany({
+      where: { chatId: chat.id, read: false, senderId: { not: requesterId } },
+      data: { read: true },
+    });
+
+    return chat;
+  }
+
+  async sendModerationChatMessage(chatId: string, senderId: string, content: string) {
+    const chat = await this.prisma.moderationChat.findUnique({
+      where: { id: chatId },
+      select: { id: true, status: true, staffId: true, reporterId: true },
+    });
+    if (!chat) throw new NotFoundException('Conversation not found');
+    if (chat.status === 'CLOSED') {
+      throw new BadRequestException('Cette conversation est fermée.');
+    }
+    if (chat.staffId !== senderId && chat.reporterId !== senderId) {
+      throw new BadRequestException('Accès non autorisé.');
+    }
+
+    const msg = await this.prisma.moderationChatMessage.create({
+      data: { chatId, senderId, content },
+      select: {
+        id: true,
+        content: true,
+        read: true,
+        createdAt: true,
+        sender: { select: { id: true, displayName: true, trustLevel: true } },
+      },
+    });
+
+    // Notify the other party
+    const recipientId = senderId === chat.staffId ? chat.reporterId : chat.staffId;
+    await this.createUserNotification({
+      userId: recipientId,
+      title: 'Nouveau message dans votre dossier de modération',
+      content: content.length > 80 ? `${content.slice(0, 80)}…` : content,
+      link: '/messagerie?tab=dossiers',
+    });
+
+    return msg;
+  }
+
+  async closeModerationChat(chatId: string, staffId: string) {
+    const chat = await this.prisma.moderationChat.findUnique({
+      where: { id: chatId },
+      select: { id: true, staffId: true, reporterId: true },
+    });
+    if (!chat) throw new NotFoundException('Conversation not found');
+
+    const updated = await this.prisma.moderationChat.update({
+      where: { id: chatId },
+      data: { status: 'CLOSED', closedAt: new Date() },
+      select: { id: true, status: true },
+    });
+
+    await this.createUserNotification({
+      userId: chat.reporterId,
+      title: 'Votre dossier de modération a été clôturé',
+      content: "L'équipe Velentra a traité votre dossier. Merci pour votre coopération.",
+      link: '/messagerie?tab=dossiers',
+    });
+
+    return updated;
+  }
+
+  async listUserModerationChats(userId: string) {
+    return this.prisma.moderationChat.findMany({
+      where: { reporterId: userId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        status: true,
+        createdAt: true,
+        closedAt: true,
+        reportId: true,
+        staff: { select: { id: true, displayName: true } },
+        messages: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { content: true, createdAt: true, senderId: true, read: true },
+        },
+      },
+    });
   }
 
   async getAlerts() {

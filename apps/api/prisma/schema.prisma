@@ -103,6 +103,9 @@ model User {
   tokenBalance        TokenBalance?
   tokenTransactions   TokenTransaction[]
   favorites           AnnouncementFavorite[]
+  modChatsAsStaff     ModerationChat[]        @relation("ModChatStaff")
+  modChatsAsReporter  ModerationChat[]        @relation("ModChatReporter")
+  modChatMessages     ModerationChatMessage[]
 
   @@index([trustLevel])
   @@index([accountStatus])
@@ -245,6 +248,8 @@ model Report {
 
   reporterId String
   reporter   User @relation("ReportsMade", fields: [reporterId], references: [id])
+
+  moderationChat ModerationChat?
 
   @@index([status, createdAt])
   @@index([targetType])
@@ -411,4 +416,40 @@ model FaqItem {
   updatedAt    DateTime @updatedAt
 
   @@index([category, displayOrder])
+}
+
+model ModerationChat {
+  id        String    @id @default(cuid())
+  status    String    @default("OPEN")
+  createdAt DateTime  @default(now())
+  closedAt  DateTime?
+
+  reportId   String @unique
+  report     Report @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  staffId    String
+  staff      User   @relation("ModChatStaff", fields: [staffId], references: [id], onDelete: Cascade)
+
+  reporterId String
+  reporter   User   @relation("ModChatReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  messages ModerationChatMessage[]
+
+  @@index([reporterId])
+  @@index([staffId])
+}
+
+model ModerationChatMessage {
+  id        String   @id @default(cuid())
+  content   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  chatId   String
+  chat     ModerationChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  senderId String
+  sender   User   @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([chatId, createdAt])
 }

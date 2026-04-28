@@ -20,9 +20,10 @@ const PLANS = [
     period: '',
     color: 'var(--text-muted)',
     gradient: '',
+    popular: false,
     features: [
       '1 annonce active',
-      '3 photos par annonce',
+      '5 photos par annonce',
       'Messagerie standard',
       'Accès à la communauté',
     ],
@@ -33,17 +34,18 @@ const PLANS = [
     id: 'plus',
     label: 'Plus',
     icon: '⭐',
-    price: '4,99€',
+    price: '5,99€',
     period: '/mois',
     color: '#6366f1',
     gradient: 'linear-gradient(135deg, #6366f1, #818cf8)',
+    popular: true,
     features: [
-      '2 annonces actives',
+      '3 annonces actives',
       '5 photos par annonce',
+      'Album photo (jusqu\'à 10 photos)',
       'Badge Plus visible',
       'Voir les visiteurs de profil',
       'Filtres avancés',
-      'Messagerie standard',
     ],
     cta: 'Passer à Plus',
     ctaDisabled: false,
@@ -56,14 +58,15 @@ const PLANS = [
     period: '/mois',
     color: '#7c3aed',
     gradient: 'linear-gradient(135deg, #7c3aed, #9c27b0)',
+    popular: false,
     features: [
-      '3 annonces actives',
-      '8 photos par annonce',
+      '5 annonces actives',
+      '5 photos par annonce',
+      'Album photo (jusqu\'à 20 photos)',
       'Badge Premium visible',
-      'Statistiques profil',
+      'Statistiques profil avancées',
       '1 boost offert par mois',
-      'Mise en avant légère',
-      'Voir les visiteurs de profil',
+      'Mise en avant renforcée',
     ],
     cta: 'Passer à Premium',
     ctaDisabled: false,
@@ -118,13 +121,13 @@ export default function SubscriptionsPage() {
                 background: isPaid
                   ? `linear-gradient(180deg, ${plan.color}06 0%, transparent 100%)`
                   : undefined,
-                transform: plan.id === 'premium' ? 'translateY(-4px)' : undefined,
-                boxShadow: plan.id === 'premium'
+                transform: plan.id === 'plus' ? 'translateY(-4px)' : undefined,
+                boxShadow: plan.id === 'plus'
                   ? `0 0 40px ${plan.color}20, 0 8px 32px rgba(0,0,0,0.2)`
                   : undefined,
               }}
             >
-              {plan.id === 'premium' && (
+              {'popular' in plan && plan.popular && (
                 <div style={{
                   position: 'absolute',
                   top: -12,

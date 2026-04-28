@@ -4,15 +4,15 @@ import { PrismaService } from '../prisma/prisma.service';
 export type UserPlanType = 'free' | 'plus' | 'premium';
 
 export const PLAN_LIMITS: Record<UserPlanType, { maxAnnouncements: number; maxPhotos: number; boostsPerMonth: number }> = {
-  free:    { maxAnnouncements: 1, maxPhotos: 3, boostsPerMonth: 0 },
-  plus:    { maxAnnouncements: 2, maxPhotos: 5, boostsPerMonth: 0 },
-  premium: { maxAnnouncements: 3, maxPhotos: 8, boostsPerMonth: 1 },
+  free:    { maxAnnouncements: 1, maxPhotos: 5, boostsPerMonth: 0 },
+  plus:    { maxAnnouncements: 3, maxPhotos: 5, boostsPerMonth: 0 },
+  premium: { maxAnnouncements: 5, maxPhotos: 5, boostsPerMonth: 1 },
 };
 
 export const PLAN_FEATURES: Record<UserPlanType, string[]> = {
-  free:    ['1 annonce active', '3 photos par annonce', 'Messagerie standard'],
-  plus:    ['2 annonces actives', '5 photos par annonce', 'Voir les visiteurs de profil', 'Badge Plus', 'Filtres avancés'],
-  premium: ['3 annonces actives', '8 photos par annonce', 'Badge Premium', 'Statistiques profil', '1 boost offert/mois', 'Mise en avant légère'],
+  free:    ['1 annonce active', '5 photos par annonce', 'Messagerie standard'],
+  plus:    ['3 annonces actives', '5 photos par annonce', 'Album photo (10 photos)', 'Badge Plus', 'Filtres avancés'],
+  premium: ['5 annonces actives', '5 photos par annonce', 'Album photo (20 photos)', 'Badge Premium', 'Statistiques profil', '1 boost/mois', 'Mise en avant renforcée'],
 };
 
 @Injectable()

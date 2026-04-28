@@ -1,4 +1,4 @@
-import { Body, Controller, ForbiddenException, Get, Post, Query, Request, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, ForbiddenException, Get, Post, Query, Request, UseGuards } from '@nestjs/common';
 import { z } from 'zod';
 import type { Request as ExpressRequest } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -85,6 +85,54 @@ export class ModerationController {
       targetId: dto.targetId,
       reason: dto.reason,
     });
+  }
+
+  /** Staff initiates a moderation chat for a report */
+  @Post('/reports/:id/chat')
+  @UseGuards(StaffGuard)
+  async initiateModerationChat(@Request() req: ExpressRequest) {
+    const staff = req.user as AuthUser;
+    return this.mod.initiateModerationChat((req.params as { id: string }).id, staff.id);
+  }
+
+  /** Get moderation chat for a report (staff or reporter) */
+  @Get('/reports/:id/chat')
+  @UseGuards(JwtAuthGuard)
+  async getModerationChat(@Request() req: ExpressRequest) {
+    const user = req.user as AuthUser;
+    const chat = await this.mod.getModerationChatByReport((req.params as { id: string }).id, user.id);
+    if (!chat) return null;
+    // Only staff or the reporter can access
+    if (chat.staff.id !== user.id && chat.reporter.id !== user.id) {
+      throw new ForbiddenException('Accès non autorisé.');
+    }
+    return chat;
+  }
+
+  /** Send a message in a moderation chat */
+  @Post('/chats/:chatId/messages')
+  @UseGuards(JwtAuthGuard)
+  async sendModerationChatMessage(@Request() req: ExpressRequest, @Body() body: unknown) {
+    const user = req.user as AuthUser;
+    const { content } = (body as { content?: string });
+    if (!content || content.trim().length < 1) throw new BadRequestException('Message vide.');
+    return this.mod.sendModerationChatMessage((req.params as { chatId: string }).chatId, user.id, content.trim());
+  }
+
+  /** Close a moderation chat (staff only) */
+  @Post('/chats/:chatId/close')
+  @UseGuards(StaffGuard)
+  async closeModerationChat(@Request() req: ExpressRequest) {
+    const staff = req.user as AuthUser;
+    return this.mod.closeModerationChat((req.params as { chatId: string }).chatId, staff.id);
+  }
+
+  /** Get current user's moderation chats (for messagerie Dossiers tab) */
+  @Get('/my-chats')
+  @UseGuards(JwtAuthGuard)
+  async listMyModerationChats(@Request() req: ExpressRequest) {
+    const user = req.user as AuthUser;
+    return this.mod.listUserModerationChats(user.id);
   }
 
   /** Staff (moderator+) can poll alert counts */

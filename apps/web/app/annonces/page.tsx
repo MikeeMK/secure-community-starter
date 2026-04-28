@@ -166,13 +166,26 @@ export default function AnnoncesPage() {
           className="form-input"
           value={activeCategory}
           onChange={(e) => setActiveCategory(e.target.value as CategoryFilter)}
-          style={{ height: 46, fontSize: 15, minWidth: 160 }}
+          style={{ height: 46, fontSize: 15, minWidth: 180 }}
         >
-          {CATEGORIES.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat}
-            </option>
-          ))}
+          <option value="Toutes">Toutes les catégories</option>
+          <optgroup label="Rencontres">
+            <option value="Rencontre Hétéro">Rencontre Hétéro</option>
+            <option value="Rencontre Gay">Rencontre Gay</option>
+            <option value="Rencontre Lesbienne">Rencontre Lesbienne</option>
+            <option value="Rencontre Bi">Rencontre Bi</option>
+            <option value="Rencontre Couple">Rencontre Couple</option>
+          </optgroup>
+          <optgroup label="Social">
+            <option value="Amitié">Amitié</option>
+            <option value="Activités & Sorties">Activités &amp; Sorties</option>
+          </optgroup>
+          <optgroup label="Classifiés">
+            <option value="Vente">Vente</option>
+            <option value="Services">Services</option>
+            <option value="Location">Location</option>
+            <option value="Autre">Autre</option>
+          </optgroup>
         </select>
 
         {/* Region */}
@@ -234,26 +247,9 @@ export default function AnnoncesPage() {
         <div className="card" style={{ textAlign: 'center', padding: '64px 32px' }}>
           <div style={{ fontSize: 52, marginBottom: 16 }}>🔍</div>
           <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 10 }}>Recherchez une annonce</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: 15, maxWidth: 420, margin: '0 auto 24px', lineHeight: 1.6 }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: 15, maxWidth: 420, margin: '0 auto', lineHeight: 1.6 }}>
             Choisissez une catégorie, une région ou tapez un mot-clé pour afficher les annonces correspondantes.
           </p>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-            {CATEGORIES.filter((c) => c !== 'Toutes').slice(0, 6).map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => setActiveCategory(cat as CategoryFilter)}
-                style={{
-                  padding: '8px 16px', borderRadius: 99, fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                  background: `${CATEGORY_COLORS[cat] ?? '#8b5cf6'}18`,
-                  color: CATEGORY_COLORS[cat] ?? '#8b5cf6',
-                  border: `1px solid ${CATEGORY_COLORS[cat] ?? '#8b5cf6'}40`,
-                }}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
         </div>
       )}
 

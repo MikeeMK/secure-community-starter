@@ -265,6 +265,35 @@ type AdminUserDetail = {
   }[];
 };
 
+type ModChatMessage = {
+  id: string;
+  content: string;
+  read: boolean;
+  createdAt: string;
+  sender: { id: string; displayName: string; trustLevel: string };
+};
+
+type ModChatDetail = {
+  id: string;
+  status: string;
+  createdAt: string;
+  closedAt: string | null;
+  reportId: string;
+  staff: { id: string; displayName: string; trustLevel: string };
+  reporter: { id: string; displayName: string };
+  messages: ModChatMessage[];
+};
+
+type UserModChat = {
+  id: string;
+  status: string;
+  createdAt: string;
+  closedAt: string | null;
+  reportId: string;
+  staff: { id: string; displayName: string };
+  messages: { content: string; createdAt: string; senderId: string; read: boolean }[];
+};
+
 type ModerationActionItem = {
   id: string;
   actionType: string;
@@ -337,6 +366,21 @@ const targetTypeLabel: Record<string, string> = {
   POST: 'Réponse',
   MESSAGE: 'Message',
   FEEDBACK: 'Feedback',
+};
+
+const actionTypeLabel: Record<string, { label: string; color: string; bg: string }> = {
+  REPORT_REWARDED: { label: 'Signalement récompensé', color: '#16a34a', bg: 'rgba(22,163,74,0.12)' },
+  REPORT_IN_REVIEW: { label: 'Signalement en examen', color: '#d97706', bg: 'rgba(217,119,6,0.12)' },
+  REPORT_RESOLVED: { label: 'Signalement résolu', color: '#2563eb', bg: 'rgba(37,99,235,0.12)' },
+  REPORT_DISMISSED: { label: 'Signalement rejeté', color: 'var(--text-muted)', bg: 'var(--surface-3)' },
+  HIDE_TOPIC: { label: 'Contenu masqué (sujet)', color: '#dc2626', bg: 'rgba(220,38,38,0.12)' },
+  RESTORE_TOPIC: { label: 'Contenu restauré (sujet)', color: '#16a34a', bg: 'rgba(22,163,74,0.12)' },
+  HIDE_POST: { label: 'Contenu masqué (réponse)', color: '#dc2626', bg: 'rgba(220,38,38,0.12)' },
+  RESTORE_POST: { label: 'Contenu restauré (réponse)', color: '#16a34a', bg: 'rgba(22,163,74,0.12)' },
+  HIDE_MESSAGE: { label: 'Message masqué', color: '#dc2626', bg: 'rgba(220,38,38,0.12)' },
+  RESTORE_MESSAGE: { label: 'Message restauré', color: '#16a34a', bg: 'rgba(22,163,74,0.12)' },
+  REMOVE_AVATAR: { label: 'Avatar supprimé', color: '#7c3aed', bg: 'rgba(124,58,237,0.12)' },
+  CLEAR_BIO: { label: 'Bio effacée', color: '#7c3aed', bg: 'rgba(124,58,237,0.12)' },
 };
 
 const sentimentConfig: Record<string, { label: string; color: string; bg: string }> = {
@@ -725,7 +769,9 @@ function UserAdminModal({
                   {detail.moderationActions.map((action) => (
                     <div key={action.id} style={{ padding: 12, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
-                        <div style={{ fontWeight: 700, fontSize: 13 }}>{action.actionType}</div>
+                        <div style={{ fontWeight: 700, fontSize: 13, color: actionTypeLabel[action.actionType]?.color ?? 'var(--text)' }}>
+                          {actionTypeLabel[action.actionType]?.label ?? action.actionType}
+                        </div>
                         <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>{formaterDateHeure(action.createdAt)}</div>
                       </div>
                       {action.reason && <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 8, lineHeight: 1.6 }}>{action.reason}</div>}
@@ -760,6 +806,19 @@ function ReportDetailModal({
   const [saving, setSaving] = React.useState(false);
   const [success, setSuccess] = React.useState<string | null>(null);
   const [resolutionReason, setResolutionReason] = React.useState('');
+  const [modChat, setModChat] = React.useState<ModChatDetail | null | undefined>(undefined);
+  const [chatMsg, setChatMsg] = React.useState('');
+  const [chatSending, setChatSending] = React.useState(false);
+  const chatEndRef = React.useRef<HTMLDivElement>(null);
+
+  const refreshChat = React.useCallback(async (rId: string) => {
+    try {
+      const data = await apiFetch<ModChatDetail | null>(`/moderation/reports/${rId}/chat`);
+      setModChat(data ?? null);
+    } catch {
+      setModChat(null);
+    }
+  }, []);
 
   const refresh = React.useCallback(async () => {
     if (!reportId) return;
@@ -769,10 +828,11 @@ function ReportDetailModal({
       const data = await apiFetch<SignalementDetail>(`/moderation/reports/${reportId}`);
       setDetail(data);
       setResolutionReason(data.resolutionReason ?? '');
+      await refreshChat(reportId);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Impossible de charger ce dossier.');
     }
-  }, [reportId]);
+  }, [reportId, refreshChat]);
 
   React.useEffect(() => {
     if (!reportId) return;
@@ -817,6 +877,55 @@ function ReportDetailModal({
       onChanged();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Impossible d’appliquer cette action de contenu.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleInitiateChat() {
+    if (!detail) return;
+    setSaving(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      await apiFetch(`/moderation/reports/${detail.id}/chat`, { method: 'POST' });
+      setSuccess('Discussion ouverte. Le reporter a été notifié.');
+      await refreshChat(detail.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Impossible d'ouvrir la discussion.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleSendChatMsg() {
+    if (!modChat || !chatMsg.trim()) return;
+    setChatSending(true);
+    try {
+      const msg = await apiFetch<ModChatMessage>(`/moderation/chats/${modChat.id}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ content: chatMsg.trim() }),
+      });
+      setModChat((prev) => prev ? { ...prev, messages: [...prev.messages, msg] } : prev);
+      setChatMsg('');
+      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Impossible d\'envoyer le message.');
+    } finally {
+      setChatSending(false);
+    }
+  }
+
+  async function handleCloseChat() {
+    if (!modChat) return;
+    if (!window.confirm('Clôturer cette discussion ? Le reporter sera notifié.')) return;
+    setSaving(true);
+    try {
+      await apiFetch(`/moderation/chats/${modChat.id}/close`, { method: 'POST' });
+      setModChat((prev) => prev ? { ...prev, status: 'CLOSED' } : prev);
+      setSuccess('Discussion clôturée.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Impossible de clôturer.');
     } finally {
       setSaving(false);
     }
@@ -1129,6 +1238,87 @@ function ReportDetailModal({
                   </button>
                 )}
               </div>
+            </div>
+
+            <div className="card" style={{ padding: 18, display: 'grid', gap: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 16 }}>Discussion avec le reporter</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                    Échangez directement avec le reporter pour obtenir des précisions.
+                  </div>
+                </div>
+                {modChat && modChat.status === 'OPEN' && (
+                  <button type="button" className="btn btn-ghost btn-sm" disabled={saving} onClick={() => void handleCloseChat()}>
+                    Clôturer
+                  </button>
+                )}
+              </div>
+
+              {modChat === undefined && <p className="loading-text" style={{ fontSize: 13 }}>Chargement…</p>}
+
+              {modChat === null && (
+                <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                  <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>
+                    Aucune discussion ouverte pour ce dossier.
+                  </p>
+                  <button type="button" className="btn btn-secondary" disabled={saving} onClick={() => void handleInitiateChat()}>
+                    💬 Demander des précisions au reporter
+                  </button>
+                </div>
+              )}
+
+              {modChat && (
+                <div style={{ display: 'grid', gap: 10 }}>
+                  {modChat.status === 'CLOSED' && (
+                    <div style={{ background: 'var(--surface-3)', borderRadius: 10, padding: '8px 12px', fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>
+                      Discussion clôturée le {formaterDate(modChat.closedAt ?? modChat.createdAt)}
+                    </div>
+                  )}
+                  <div style={{ maxHeight: 280, overflowY: 'auto', display: 'grid', gap: 8, padding: 4 }}>
+                    {modChat.messages.map((msg) => {
+                      const isStaff = msg.sender.trustLevel === 'moderator' || msg.sender.trustLevel === 'super_admin';
+                      return (
+                        <div key={msg.id} style={{ display: 'flex', flexDirection: isStaff ? 'row-reverse' : 'row', gap: 8, alignItems: 'flex-end' }}>
+                          <div
+                            style={{
+                              maxWidth: '80%',
+                              padding: '8px 12px',
+                              borderRadius: isStaff ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
+                              background: isStaff ? 'var(--accent)' : 'var(--surface-3)',
+                              color: isStaff ? '#fff' : 'var(--text)',
+                              fontSize: 13,
+                              lineHeight: 1.6,
+                            }}
+                          >
+                            {msg.content}
+                            <div style={{ fontSize: 10, opacity: 0.65, marginTop: 4, textAlign: isStaff ? 'right' : 'left' }}>
+                              {msg.sender.displayName} · {formaterDateHeure(msg.createdAt)}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div ref={chatEndRef} />
+                  </div>
+
+                  {modChat.status === 'OPEN' && (
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <input
+                        className="input"
+                        style={{ flex: 1, fontSize: 13 }}
+                        value={chatMsg}
+                        onChange={(e) => setChatMsg(e.target.value)}
+                        placeholder="Répondre au reporter…"
+                        onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void handleSendChatMsg(); } }}
+                      />
+                      <button type="button" className="btn btn-primary btn-sm" disabled={chatSending || !chatMsg.trim()} onClick={() => void handleSendChatMsg()}>
+                        {chatSending ? '…' : 'Envoyer'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1916,9 +2106,14 @@ function OngletJournal() {
             <div key={item.id} style={{ padding: 14, borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <span className="badge" style={{ background: 'var(--surface-3)', border: '1px solid var(--border)' }}>
-                    {item.actionType}
-                  </span>
+                  {(() => {
+                    const meta = actionTypeLabel[item.actionType];
+                    return (
+                      <span className="badge" style={{ background: meta?.bg ?? 'var(--surface-3)', color: meta?.color ?? 'var(--text)', border: '1px solid var(--border)', fontWeight: 700 }}>
+                        {meta?.label ?? item.actionType}
+                      </span>
+                    );
+                  })()}
                   <span className="badge" style={{ background: 'var(--surface-3)', border: '1px solid var(--border)' }}>
                     {targetTypeLabel[item.targetType] ?? item.targetType}
                   </span>
